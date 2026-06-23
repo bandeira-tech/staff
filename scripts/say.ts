@@ -16,6 +16,7 @@ function arg(flag: string, argv: string[]): string | undefined {
 
 const argv = [...Deno.args];
 const url = arg("--url", argv) ?? "http://127.0.0.1:7373";
+const root = arg("--root", argv) ?? "immutable://open/cc-chat/";
 let presence = false;
 const i = argv.indexOf("--presence");
 if (i >= 0) {
@@ -24,6 +25,8 @@ if (i >= 0) {
 }
 const urlI = argv.indexOf("--url");
 if (urlI >= 0) argv.splice(urlI, 2);
+const rootI = argv.indexOf("--root");
+if (rootI >= 0) argv.splice(rootI, 2);
 
 const name = argv[0];
 const text = argv.slice(1).join(" ");
@@ -34,7 +37,7 @@ if (!name || !text) {
 }
 
 const client = new HttpClient({ url });
-const uri = presence ? mintPresenceUri(name) : mintStreamUri(name);
+const uri = presence ? mintPresenceUri(root, name) : mintStreamUri(root, name);
 const payload = new TextEncoder().encode(text);
 const results = await client.receive([[uri, payload]]);
 

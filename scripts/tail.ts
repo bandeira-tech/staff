@@ -30,7 +30,8 @@ const VIOLET = "\x1b[35m";
 
 const argv = [...Deno.args];
 const url = arg("--url", argv) ?? Deno.env.get("CC_CHAT_URL") ?? "http://127.0.0.1:7373";
-const pattern = arg("--pattern", argv) ?? "cc-chat://**";
+const root = arg("--root", argv) ?? "immutable://open/cc-chat/";
+const pattern = arg("--pattern", argv) ?? `${root}**`;
 const asJson = argv.includes("--json");
 
 const abort = new AbortController();
@@ -39,19 +40,19 @@ Deno.addSignalListener("SIGINT", () => abort.abort());
 console.error(`tailing ${url} for ${pattern} — Ctrl-C to stop`);
 
 try {
-  for await (const { uri, payload } of tail({ url, pattern, signal: abort.signal })) {
+  for await (const { uri, payload } of tail({ url, root, pattern, signal: abort.signal })) {
     if (asJson) {
       console.log(JSON.stringify({ uri, payload }));
       continue;
     }
     const t = new Date();
     const ts = `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
-    const parsed = parseUri(uri);
+    const parsed = parseUri(root, uri);
     if (!parsed) {
       console.log(`${DIM}${ts}${RESET} ${uri} ${payload ?? ""}`);
       continue;
     }
-    if (parsed.kind === "presence") {
+    if (parsed.channel === "presence") {
       const verb = payload === "join" ? "joined" : payload === "leave" ? "left" : (payload ?? "");
       console.log(`${DIM}${ts}${RESET} ${VIOLET}${parsed.name}${RESET} ${DIM}${verb}${RESET}`);
     } else {
