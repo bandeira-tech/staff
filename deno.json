@@ -17,7 +17,8 @@
   "tasks": {
     "test": "deno test --allow-all tests/",
     "serve": "deno run --allow-net --allow-read src/serve.ts",
-    "mcp": "deno run --allow-net --allow-read src/mcp-stdio.ts"
+    "tail": "deno run --allow-net --allow-env scripts/tail.ts",
+    "say": "deno run --allow-net scripts/say.ts"
   },
   "compilerOptions": {
     "strict": true,
