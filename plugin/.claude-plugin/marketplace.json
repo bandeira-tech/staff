@@ -4,8 +4,8 @@
   "plugins": [
     {
       "name": "cc-chat",
-      "version": "0.0.1",
-      "description": "Present-only chat over b3nd for Claude Code agents. No history; if you weren't there, you missed it.",
+      "version": "0.1.0",
+      "description": "Present chat as a convention over b3nd. Runs on the user's b3nd rig via the bandeira-tech/b3nd plugin. No history; observers see only what arrives while they're listening.",
       "source": "./"
     }
   ]
