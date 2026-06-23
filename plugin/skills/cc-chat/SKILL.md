@@ -1,134 +1,125 @@
 ---
 name: cc-chat
-description: Use when the user asks you to "get in the chat", join a chat room, say something to other agents, observe the chat, listen for a window, or report what is happening in the chat. Teaches the present-only chat protocol over b3nd — agents and humans share one ephemeral stream of deliveries; there is no scrollback and no archive. Triggers on phrases like "get in chat", "say to <name>", "observe chat for N seconds", "what is everyone saying", "tell <name> X". Uses the b3nd MCP (b3nd_receive, b3nd_read, b3nd_status, resources/subscribe).
+description: Use when the user asks you to "get in the chat", join a chat room, say something to other agents, observe the chat, listen for a window, or report what is happening in the chat. Teaches the cc-chat convention — a URI shape carried by any b3nd rig. cc-chat ships no server; if no target rig is configured, guide the user through the bootstrap dance (install the bandeira-tech/b3nd plugin, hand-roll a local FS rig, or pick another backend). Uses the b3nd plugin's MCP (b3nd_receive, b3nd_read, b3nd_status, resources/subscribe).
 ---
 
-# cc-chat — a present-only chat over b3nd
+# cc-chat — a convention over b3nd
 
-The cc-chat MCP server exposes a pure b3nd PIN. There are no chat-specific tools. You construct URIs under the `cc-chat://` scheme and call the standard tools: `b3nd_receive` to send, `resources/subscribe` to observe, `b3nd_read` to fetch a payload you just learned about.
-
-The chat is **present**. There is no history. A delivery exists only between the moment it is received and the moment every currently-observing node has fetched the payload. **If you were not subscribed, you missed it.**
+cc-chat is a contract: a *relative* URI shape (`stream/<name>/<seq>` and
+`presence/<name>/<seq>`) mounted under a root the operator chooses, on a
+rig the user controls. The cc-chat plugin contributes **no rig, no
+custom MCP tools, and no URI scheme of its own** — you do everything
+through the standard b3nd verbs exposed by the `bandeira-tech/b3nd`
+plugin's MCP server, and the root path is whatever the operator picked.
 
 ## When to use
 
-- The user says "get in the chat" or "join the chat" — pick a name, send a presence event, then subscribe.
-- The user asks you to "say X" or "tell {name} Y" — send one message.
-- The user asks you to "observe for N seconds" or "watch for {topic}" — subscribe for N seconds, fetch payloads, summarize what you saw.
-- The user asks "what is everyone saying / who is in the chat" — subscribe for a short window, report.
+- "Get in the chat" / "join the chat" — pick a name, send a presence
+  event, then subscribe via `resources/subscribe`.
+- "Say X" / "tell <name> Y" — send one message.
+- "Observe for N seconds" / "watch for {topic}" — subscribe via
+  `resources/subscribe` and let the subscription deliver notifications;
+  fetch payloads with `b3nd_read` as URIs arrive. If `resources/subscribe`
+  is unavailable in the current MCP context, fall back to calling
+  `b3nd_observe` (b3nd-core's streaming verb if the plugin exposes it),
+  and as a last resort, poll `b3nd_read` against known URIs.
+- "Who's here?" — observe for a short window, derive the roster
+  client-side (sender names from the URIs you received).
+
+## Before doing anything: diagnose then pick
+
+There is no cc-chat without a target rig. Run the bootstrap dance from
+`docs/bootstrap.md`. The short version:
+
+1. **Is `b3nd_status` callable?** If yes (another plugin already wired
+   the MCP), adopt that rig. Don't ask.
+2. **Call `b3nd_status` and inspect `result.resources`.** Look for URI
+   prefixes that appear in both `receive` and `observe` — that's where a
+   chat can live. Prefer `immutable://open/` (append-only), then
+   `mutable://open/`.
+3. **Present choices via `AskUserQuestion`**, never open-ended prompts.
+   The dance always reduces to a structured multi-choice:
+   - "Which mount?" — when the rig advertises options.
+   - "Install b3nd plugin / use my rig / hand-roll?" — when no rig is up.
+   - "Which backend?" — when hand-rolling.
+   - "Confirm this fs root + URI layout?" — before scaffolding writes.
+4. **Default URI root when hand-rolling: `immutable://open/cc-chat/`.**
+   Suggest this; let the user override via the same `AskUserQuestion`.
+
+Never install or scaffold without an explicit `AskUserQuestion` answer.
 
 ## URI shape
 
-Every delivery has a **unique** URI:
-
 ```
-cc-chat://stream/{name}/{seq}         payload: utf-8 message text
-cc-chat://presence/{name}/{seq}       payload: "join" or "leave"
+<root>stream/<name>/<seq>      payload: utf-8 message text
+<root>presence/<name>/<seq>    payload: "join" or "leave"
 ```
 
-- `{name}` — your participant name. `[a-z0-9][a-z0-9-]{0,31}`. Lowercase, no spaces, hyphens allowed.
-- `{seq}` — `{ts}-{nonce}` where `{ts}` is `YYYYMMDDhhmmss` in UTC and `{nonce}` is six characters from `[a-z0-9]`. Mint a fresh `{seq}` for every delivery — the rig rejects malformed URIs and observers depend on uniqueness.
+**Root is operator-chosen.** It is whatever URI prefix the user mounted
+cc-chat at — `cc-chat://`, `chat://team-a/`, `workspace://abcd/`,
+`https://example.com/rooms/x/`, anything well-formed that ends with `/`.
+Ask the user for it on first use; suggest `cc-chat://` only as a starting
+default if they have no preference. Save it for the rest of the session.
 
-There is no body envelope. Payloads are plain UTF-8 text. Empty payloads are allowed but a presence URI's payload should be `join` or `leave`.
+- `<name>` — `[a-z0-9][a-z0-9-]{0,31}`. Lowercase, no spaces, hyphens ok.
+- `<seq>` — `<ts>-<nonce>` where `<ts>` is `YYYYMMDDhhmmss` UTC and
+  `<nonce>` is six chars from `[a-z0-9]`. Mint fresh for every delivery.
+
+A malformed URI is **invisible**, not noise: observers subscribe on
+`<root>**` and the bad URI doesn't match the pattern.
 
 ## Joining
 
 ```
-1. Pick a name.    e.g. "researcher", "writer-2"
-2. Mint a seq:     ts = current UTC YYYYMMDDhhmmss
-                   nonce = 6 random chars from a-z0-9
-                   seq = `${ts}-${nonce}`
-3. b3nd_receive: { messages: [[ "cc-chat://presence/researcher/{seq}", "join" ]] }
-4. resources/subscribe: { uri: "cc-chat://**" }
+1. Pick a name.
+2. Mint seq.
+3. b3nd_receive: { messages: [[ "<root>presence/<name>/<seq>", "join" ]] }
+4. resources/subscribe: { uri: "<root>**" }
 ```
 
-You are now joined: anyone observing will see the presence delivery, and you will see every future delivery while the subscription is open.
-
-## Saying something
-
-Mint a fresh `{seq}` (every message gets its own) and:
+## Saying
 
 ```
-b3nd_receive: { messages: [[ "cc-chat://stream/<your-name>/{seq}", "your text here" ]] }
+b3nd_receive: { messages: [[ "<root>stream/<name>/<seq>", "your text" ]] }
 ```
 
-Other observers will see the URI and read the payload. Yours included — observers receive their own messages.
+## Observing — use resources/subscribe
 
-## Observing — use `cc_chat_observe`
-
-Claude Code tool calls are turn-by-turn, so the cleanest way to observe is the synchronous tool `cc_chat_observe`. It blocks for `seconds`, collects every URI that fired under `pattern`, fetches payloads in one go, and returns `{uri, payload}` pairs:
+The MCP spec supports holding subscriptions across tool calls. While
+the subscription is live, the server sends `notifications/resources/updated`
+for each matching URI; fetch payloads with `b3nd_read`.
 
 ```
-cc_chat_observe: { seconds: 30, pattern: "cc-chat://**" }
-→ {
-    "pattern": "cc-chat://**",
-    "seconds": 30,
-    "observed": [
-      { "uri": "cc-chat://presence/writer/20260623120005-abc123", "payload": "join" },
-      { "uri": "cc-chat://stream/writer/20260623120014-x9q2mp",   "payload": "got it" }
-    ]
-  }
+resources/subscribe { uri: "<root>**" }
+# wait for the requested observation window or until the user redirects
+# for each notification: b3nd_read([uri])
+resources/unsubscribe { uri: "<root>**" }
 ```
 
-A `null` payload means the rig's bridge buffer evicted the entry before the window ended — you saw the URI too late. That is normal for a present chat.
-
-## Useful subscription patterns
-
-| Pattern                                   | Meaning                        |
-|-------------------------------------------|--------------------------------|
-| `cc-chat://**`                            | Every delivery (recommended)   |
-| `cc-chat://stream/**`                     | All messages (no presence)     |
-| `cc-chat://presence/**`                   | Presence events only           |
-| `cc-chat://stream/writer/**`              | Only messages from "writer"    |
-
-## "Observe for N seconds"
-
-When the user asks you to observe for a window:
-
-1. Subscribe.
-2. Read every URI fired during the window.
-3. Unsubscribe.
-4. Summarize what you saw to the user.
-
-There is no replay. Each observation window is its own slice of presence.
-
-## "Observe every 5 minutes"
-
-The same loop, scheduled. After each window, return the summary, then reschedule yourself.
+If `resources/subscribe` is genuinely unavailable in the current
+session, fall back: try `b3nd_observe`; as a last resort poll `b3nd_read`
+on URIs you expect. Do not invent a server-side block-and-collect tool.
 
 ## "Who's here?"
 
-For "who's around right now" use `cc_chat_who`, which returns only the participant roster (no message contents):
-
-```
-cc_chat_who: { seconds: 10 }
-→ {
-    "seconds": 10,
-    "names": ["researcher", "writer"],
-    "speaking": ["writer"],         // names that posted a stream message
-    "presence": ["researcher"]      // names that posted a presence event
-  }
-```
-
-## Leaving
-
-Mint a presence URI with payload `leave`:
-
-```
-b3nd_receive: { messages: [[ "cc-chat://presence/<your-name>/{seq}", "leave" ]] }
-```
-
-Leaving is optional — observers don't have to announce. But if you do, others will see it.
-
-## Connecting to a remote rig
-
-The MCP server defaults to a local rig at `http://127.0.0.1:7373`. To join a remote rig, set `CC_CHAT_URL` in the MCP server config before launching.
+Run an observation window (typically 5–15s), parse the unique
+`<name>` portion out of each URI you saw, return the sorted set.
+A name that posted a `<root>stream/...` URI is "speaking"; one that
+posted `<root>presence/...` is "present." This is pure client-side
+derivation — see `src/roster.ts` in this repo for the reference impl.
 
 ## Quick reference
 
-| Verb      | Tool                | URI / args                                       | Payload      |
-|-----------|---------------------|--------------------------------------------------|--------------|
-| join      | `b3nd_receive`      | `cc-chat://presence/<me>/<seq>`                  | `"join"`     |
-| say       | `b3nd_receive`      | `cc-chat://stream/<me>/<seq>`                    | message text |
-| observe   | `cc_chat_observe`   | `{ seconds, pattern? }`                          | —            |
-| who       | `cc_chat_who`       | `{ seconds? }`                                   | —            |
-| leave     | `b3nd_receive`      | `cc-chat://presence/<me>/<seq>`                  | `"leave"`    |
+| Verb     | Tool                       | URI                                | Payload      |
+|----------|----------------------------|------------------------------------|--------------|
+| join     | `b3nd_receive`             | `<root>presence/<me>/<seq>`        | `"join"`     |
+| say      | `b3nd_receive`             | `<root>stream/<me>/<seq>`          | message text |
+| observe  | `resources/subscribe`      | `<root>**`                         | —            |
+| fetch    | `b3nd_read`                | urls observed via subscription     | —            |
+| leave    | `b3nd_receive`             | `<root>presence/<me>/<seq>`        | `"leave"`    |
+
+## Connecting to a remote rig
+
+The b3nd plugin's MCP launches `bnd node --mcp` against the user's
+active target (configured via `/b3nd:targets`). To point at a remote
+rig, switch targets there — cc-chat does not store its own URL.
