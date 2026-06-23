@@ -15,11 +15,10 @@
 
   const PATTERN_ALL = "cc-chat://**";
 
-  // After AGE_FADE_MS a delivery is rendered at PRESENCE_MIN_OPACITY.
-  // The UI keeps every row in the DOM (no scrollback elsewhere) but
-  // fades older lines so the present is always loudest. Tunable.
+  // Visual ageing windows. Independent of the rig's bridge buffer.
   const AGE_FADE_MS = 60_000;
   const PRESENCE_MIN_OPACITY = 0.18;
+  const PRESENCE_WINDOW_MS = 30_000; // name considered "here" if seen within
 
   // ---- url-list encoder (browser-side, matches b3nd-move/codecs) ----
   function encodeUrlList(urls) {
@@ -44,19 +43,7 @@
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
-  // ---- DOM ----
-  const streamEl = document.getElementById("stream");
-  const statusEl = document.getElementById("status");
-  let emptyEl = streamEl.querySelector(".empty");
-
-  function setStatus(state, text) {
-    statusEl.className = "status " + state;
-    statusEl.textContent = text;
-  }
-
-  function pad(n) { return String(n).padStart(2, "0"); }
-
-  // Stable hash → palette index. Same name always gets the same hue.
+  // ---- Stable name → palette index ----
   const PALETTE = [
     "#39FF88", // green
     "#FF3FB7", // pink
@@ -72,6 +59,56 @@
     return PALETTE[Math.abs(h) % PALETTE.length];
   }
 
+  // ---- DOM ----
+  const streamEl = document.getElementById("stream");
+  const statusEl = document.getElementById("status");
+  const presenceList = document.getElementById("presence-list");
+  let emptyEl = streamEl.querySelector(".empty");
+
+  function setStatus(state, text) {
+    statusEl.className = "status " + state;
+    statusEl.textContent = text;
+  }
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  // ---- Roster: name → lastSeenMs ----
+  const lastSeen = new Map();
+  function noteSeen(name) { lastSeen.set(name, Date.now()); }
+
+  function renderRoster() {
+    const now = Date.now();
+    const active = [];
+    for (const [name, ts] of lastSeen) {
+      const age = now - ts;
+      if (age > PRESENCE_WINDOW_MS) {
+        lastSeen.delete(name);
+        continue;
+      }
+      active.push({ name, ts, age });
+    }
+    active.sort((a, b) => a.name.localeCompare(b.name));
+
+    presenceList.replaceChildren();
+    if (active.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty-roster";
+      li.textContent = "no one";
+      presenceList.appendChild(li);
+      return;
+    }
+    for (const { name, age } of active) {
+      const li = document.createElement("li");
+      li.style.color = colorFor(name);
+      const sec = Math.max(0, Math.floor(age / 1000));
+      li.innerHTML = `<span class="dot"></span><span class="nm"></span><span class="ago"></span>`;
+      li.querySelector(".nm").textContent = name;
+      li.querySelector(".ago").textContent = sec < 1 ? "now" : `${sec}s`;
+      presenceList.appendChild(li);
+    }
+  }
+
+  // ---- Stream rendering with age fade ----
   const rows = [];
   function tickAges() {
     const now = Date.now();
@@ -81,6 +118,7 @@
       const opacity = 1 - k * (1 - PRESENCE_MIN_OPACITY);
       r.el.style.opacity = opacity.toFixed(3);
     }
+    renderRoster();
   }
   setInterval(tickAges, 1000);
 
@@ -89,6 +127,7 @@
     const m = /^cc-chat:\/\/(stream|presence)\/([a-z0-9][a-z0-9-]{0,31})\//.exec(uri);
     if (!m) return;
     const [, kind, name] = m;
+    noteSeen(name);
     const t = new Date();
     const row = document.createElement("div");
     row.className = "row " + kind;
@@ -105,13 +144,11 @@
     streamEl.appendChild(row);
     streamEl.scrollTop = streamEl.scrollHeight;
     rows.push({ el: row, t: t.getTime() });
-    // Cap the in-memory roster so a long-lived tab doesn't accumulate
-    // unbounded DOM. Old rows are removed (they're already invisibly
-    // faded; removing is just GC).
     while (rows.length > 1000) {
       const drop = rows.shift();
       drop.el.remove();
     }
+    renderRoster();
   }
 
   async function readBatch(uris) {
