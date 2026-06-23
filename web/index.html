@@ -75,6 +75,13 @@
     padding:10px 20px;border-top:1px solid #1a1f1d;color:var(--muted);
     font-family:var(--mono);font-size:11px;
   }
+  .settings { padding:14px 20px; border-bottom:1px solid #1a1f1d; display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+  .settings.hidden { display:none; }
+  .settings label { display:flex; flex-direction:column; gap:4px; font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .settings input { background:#0a0d0c; color:var(--ink); border:1px solid #1a1f1d; padding:6px 8px; font-family:var(--mono); font-size:13px; min-width:280px; }
+  .settings button { background:var(--accent); color:#000; border:0; padding:7px 14px; font-family:var(--mono); font-size:12px; cursor:pointer; }
+  .settings button.muted { background:transparent; color:var(--muted); border:1px solid #1a1f1d; }
+  .cfg-toggle { background:transparent; border:1px solid #1a1f1d; color:var(--muted); padding:4px 8px; font-size:14px; cursor:pointer; margin-left:8px; }
   a{color:var(--accent)}
   @media (max-width:680px){
     main{flex-direction:column}
@@ -87,7 +94,20 @@
   <h1>cc-chat<span class="three">·</span> <span class="tag">present</span></h1>
   <span class="tag">no history · no scrollback · only what arrives while you are here</span>
   <span id="status" class="status down">connecting…</span>
+  <button id="cfg-toggle" class="cfg-toggle" title="settings">⚙</button>
 </header>
+<section id="settings" class="settings hidden">
+  <label>
+    <span>target rig URL</span>
+    <input id="cfg-url" type="url" placeholder="http://127.0.0.1:7373" autocomplete="off">
+  </label>
+  <label>
+    <span>root path</span>
+    <input id="cfg-root" type="text" placeholder="cc-chat://" autocomplete="off">
+  </label>
+  <button id="cfg-apply">apply</button>
+  <button id="cfg-cancel" class="muted">cancel</button>
+</section>
 <main>
   <section id="stream">
     <div class="empty">silence

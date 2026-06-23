@@ -8,12 +8,24 @@
  * length prefix per slot, base64-url-unpadded over the concatenation.
  */
 (() => {
-  const RIG_URL = (() => {
-    const meta = document.querySelector('meta[name="cc-chat-rig"]');
-    return (meta && meta.getAttribute("content")) || window.location.origin;
-  })();
+  const STORAGE_KEY = "cc-chat:config";
 
-  const PATTERN_ALL = "cc-chat://**";
+  function loadConfig() {
+    const params = new URLSearchParams(window.location.search);
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { saved = {}; }
+    const url = params.get("url") || saved.url || "http://127.0.0.1:7373";
+    const root = params.get("root") || saved.root || "immutable://open/cc-chat/";
+    return { url, root };
+  }
+  function saveConfig(cfg) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+  }
+
+  const cfg = loadConfig();
+  let targetRemote = cfg.url;
+  let rootPath = cfg.root;
+  const pattern = () => `${rootPath}**`;
 
   // Visual ageing windows. Independent of the rig's bridge buffer.
   const AGE_FADE_MS = 60_000;
@@ -124,7 +136,8 @@
 
   function render(uri, payload) {
     if (emptyEl) { emptyEl.remove(); emptyEl = null; }
-    const m = /^cc-chat:\/\/(stream|presence)\/([a-z0-9][a-z0-9-]{0,31})\//.exec(uri);
+    const escaped = rootPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp(`^${escaped}(stream|presence)\\/([a-z0-9][a-z0-9-]{0,31})\\/`).exec(uri);
     if (!m) return;
     const [, kind, name] = m;
     noteSeen(name);
@@ -153,7 +166,7 @@
 
   async function readBatch(uris) {
     const u = encodeUrlList(uris);
-    const res = await fetch(`${RIG_URL}/api/v1/read?u=${u}`, { method: "POST" });
+    const res = await fetch(`${targetRemote}/api/v1/read?u=${u}`, { method: "POST" });
     if (!res.ok) return [];
     return await res.json();
   }
@@ -162,8 +175,8 @@
     while (true) {
       setStatus("down", "connecting…");
       try {
-        const u = encodeUrlList([PATTERN_ALL]);
-        const res = await fetch(`${RIG_URL}/api/v1/observe?u=${u}`, {
+        const u = encodeUrlList([pattern()]);
+        const res = await fetch(`${targetRemote}/api/v1/observe?u=${u}`, {
           method: "POST",
         });
         if (!res.ok || !res.body) {
@@ -199,6 +212,40 @@
       await new Promise((r) => setTimeout(r, 1500));
     }
   }
+
+  // ---- Settings panel ----
+  const cfgUrlEl = document.getElementById("cfg-url");
+  const cfgRootEl = document.getElementById("cfg-root");
+  const cfgToggleEl = document.getElementById("cfg-toggle");
+  const cfgPanelEl = document.getElementById("settings");
+  const cfgApplyEl = document.getElementById("cfg-apply");
+  const cfgCancelEl = document.getElementById("cfg-cancel");
+
+  function openPanel() {
+    cfgUrlEl.value = targetRemote;
+    cfgRootEl.value = rootPath;
+    cfgPanelEl.classList.remove("hidden");
+  }
+  function closePanel() { cfgPanelEl.classList.add("hidden"); }
+
+  cfgToggleEl.addEventListener("click", () => {
+    cfgPanelEl.classList.contains("hidden") ? openPanel() : closePanel();
+  });
+  cfgCancelEl.addEventListener("click", closePanel);
+  cfgApplyEl.addEventListener("click", () => {
+    const newUrl = cfgUrlEl.value.trim();
+    const newRoot = cfgRootEl.value.trim() || "immutable://open/cc-chat/";
+    if (!newUrl) return;
+    targetRemote = newUrl;
+    rootPath = newRoot;
+    saveConfig({ url: targetRemote, root: rootPath });
+    closePanel();
+    // Reload to restart the observe loop cleanly against the new target.
+    const u = new URL(window.location.href);
+    u.searchParams.set("url", targetRemote);
+    u.searchParams.set("root", rootPath);
+    window.location.assign(u.toString());
+  });
 
   observeForever();
 })();
