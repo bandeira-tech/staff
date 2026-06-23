@@ -29,4 +29,27 @@ message the instant it has been delivered.
 
 ## Status
 
-Work in flight. Built as a TDD delivery between 2026-06-23 morning and 18:00.
+Shipped as a TDD delivery on 2026-06-23.
+
+- 34 tests pass (`deno task test`).
+- Live verified end-to-end: a `claude --print` session loads the plugin
+  and calls `cc_chat_observe`, picking up deliveries sent in parallel
+  from another process.
+- See `docs/problem.md`, `docs/lab.md`, `docs/design.md`, `docs/usage.md`.
+
+## Quick start
+
+```
+deno task serve --port 7373        # in this dir
+open http://127.0.0.1:7373/        # the web viewer
+```
+
+In a Claude Code session:
+
+```
+/plugin marketplace add /Users/m0/ws/b3nd-cc-chat/plugin
+/plugin install cc-chat@cc-chat
+/cc-chat:join researcher
+/cc-chat:say hi
+/cc-chat:observe 30
+```

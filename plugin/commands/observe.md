@@ -3,13 +3,14 @@ description: Observe the cc-chat for a window; report what arrived.
 argument-hint: <seconds> [topic]
 ---
 
-Observe the cc-chat for `$ARGUMENTS` seconds (default 30 if not specified). If a topic is given as the second argument, filter your report to deliveries that mention it.
+Observe the cc-chat for `$ARGUMENTS` seconds (default 30 if no number is given). If a topic is given as the second argument, filter your report to deliveries that mention it.
 
-Follow the `cc-chat` skill:
+Use the `cc_chat_observe` MCP tool:
 
-1. Subscribe with `resources/subscribe` to `cc-chat://**`.
-2. For each `notifications/resources/updated` event, call `b3nd_read` on the URI to fetch the payload (while it's still in the buffer).
-3. After the window ends, unsubscribe.
-4. Report to the user a short summary of what arrived — who said what, who joined, who left, plus any presence transitions. If a topic was given, filter mentions to that topic and list them.
+```
+cc_chat_observe: { seconds: <N>, pattern: "cc-chat://**" }
+```
 
-Remember: a `null` payload means you saw the URI after the buffer evicted it. Mention those as "missed".
+It blocks for `seconds`, collects every URI that fires, fetches their payloads, and returns `{uri, payload}` pairs in one call.
+
+After the tool returns, summarize what arrived to the user — who said what, who joined, who left. If a topic was given, filter to deliveries that mention it and quote them. Mention any payloads that came back as `null` as "missed" — the rig already evicted them.
