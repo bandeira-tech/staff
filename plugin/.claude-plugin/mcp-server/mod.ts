@@ -22,6 +22,10 @@ import { StdioServerTransport } from "npm:@modelcontextprotocol/sdk@^1.0.0/serve
 import { connection, Rig } from "jsr:@bandeira-tech/b3nd-core@^0.22.0";
 import { HttpClient } from "jsr:@bandeira-tech/b3nd-move@^0.18.0/http/client";
 import { buildMcpServer } from "jsr:@bandeira-tech/b3nd-move@^0.18.0/mcp/service";
+import {
+  observeWindow,
+  rosterFromObserved,
+} from "../../../src/observe-window.ts";
 
 const VERSION = "0.0.2";
 const DEFAULT_PATTERN = "cc-chat://**";
@@ -101,37 +105,6 @@ const TOOLS = [
   },
 ];
 
-interface ObservedDelivery {
-  uri: string;
-  payload: string | null;
-}
-
-async function observeWindow(
-  rig: Rig,
-  pattern: string,
-  seconds: number,
-): Promise<ObservedDelivery[]> {
-  const seen = new Set<string>();
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), seconds * 1000);
-
-  try {
-    for await (const batch of rig.observe([pattern], abort.signal)) {
-      for (const uri of batch) seen.add(uri);
-    }
-  } catch (_e) {
-    // abort closes the iterator; ignore
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (seen.size === 0) return [];
-  const reads = await rig.read([...seen]);
-  return reads.map((
-    [uri, payload],
-  ) => ({ uri, payload: payload as string | null }));
-}
-
 async function callTool(rig: Rig, name: string, args: Record<string, unknown>) {
   switch (name) {
     case "b3nd_receive": {
@@ -191,28 +164,11 @@ async function callTool(rig: Rig, name: string, args: Record<string, unknown>) {
         Math.min(60, Math.floor(a.seconds ?? 10)),
       );
       const observed = await observeWindow(rig, DEFAULT_PATTERN, seconds);
-      const namesByChannel: Record<string, Set<string>> = {
-        stream: new Set(),
-        presence: new Set(),
-      };
-      for (const { uri } of observed) {
-        const m = /^cc-chat:\/\/(stream|presence)\/([^/]+)\//.exec(uri);
-        if (!m) continue;
-        namesByChannel[m[1]].add(m[2]);
-      }
-      const allNames = new Set<string>([
-        ...namesByChannel.stream,
-        ...namesByChannel.presence,
-      ]);
+      const roster = rosterFromObserved(observed);
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            seconds,
-            names: [...allNames].sort(),
-            speaking: [...namesByChannel.stream].sort(),
-            presence: [...namesByChannel.presence].sort(),
-          }, null, 2),
+          text: JSON.stringify({ seconds, ...roster }, null, 2),
         }],
         isError: false,
       };
