@@ -203,3 +203,52 @@ by hand and add an integration test if time allows.
 
 The next document is `design.md`, which restates this in spec form and
 lists the file layout we will create.
+
+## Pivot (2026-06-23, mid-build)
+
+The user redirected: **no custom HTTP surface — use b3nd-move and target
+a b3nd node listening at a URL.** That redrew three decisions above. The
+lab is preserved as the historical record; what actually shipped:
+
+### URI shape — pivoted to per-delivery uniqueness
+
+Choice B (fixed `cc-chat://stream/<name>` URI) collides with the b3nd
+observe/read split, because `read` after observe needs to be unambiguous.
+We pivoted to:
+
+```
+cc-chat://stream/{name}/{seq}      payload: utf-8 body
+cc-chat://presence/{name}/{seq}    payload: "join" | "leave"
+```
+
+`{seq}` is `{ts}-{nonce}` — a 14-char UTC timestamp plus 6 base32 chars.
+Senders mint it; the rig validates and rejects malformed shapes.
+
+### Node — small TTL buffer, not "read returns nothing"
+
+A bare PIN with `read` returning empty made `observe → read` impossible:
+the observer learns a URI fired but cannot fetch its payload. The shipped
+node keeps a 30-second `Map<uri, payload>` so a fresh observer can read
+the payload it just saw. After 30s the entry is gone — still no archive.
+
+### Transport — b3nd-move's `httpApi`, no custom routes
+
+Instead of standing up an EventSource service, the shipped server wraps
+the node in a `Rig` and serves the standard b3nd HTTP wire via
+`@bandeira-tech/b3nd-move/http/service`. The web UI uses fetch + an
+inline url-list encoder to call `/api/v1/observe` (NDJSON) and
+`/api/v1/read` (JSON). Same protocol surface as the MCP plugin uses;
+same protocol surface as the Deno tail CLI uses.
+
+### MCP surface — pure b3nd PIN plus one agent-shaped extra
+
+Standard b3nd MCP tools (`b3nd_receive`, `b3nd_read`, `b3nd_status`) and
+one chat-specific tool: `cc_chat_observe(seconds, pattern?)`. The extra
+tool exists because Claude Code agents call MCP tools turn-by-turn and
+don't naturally hold a resource subscription across turns; the
+synchronous "observe for N seconds, return what you saw with payloads"
+shape fits the agent's loop. The skill teaches the URI grammar.
+
+The taskwatch/b3nd philosophy — "puritan PIN, ergonomics in apps" —
+held everywhere except this one tool, which buys real agent UX without
+muddying the wire.

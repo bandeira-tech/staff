@@ -108,3 +108,27 @@ chat app. That is what *present* feels like.
 
 MCP is smoke-tested by wiring the Claude Code plugin and joining the
 chat from a session. A unit test for the MCP layer is a stretch goal.
+
+## What actually shipped (post-pivot)
+
+See `lab.md` § *Pivot* for the reasoning. The shipped surface diverges
+from the design above in four places:
+
+| Sketched here              | Actually shipped                                             |
+|----------------------------|--------------------------------------------------------------|
+| `cc-chat://stream/{name}`  | `cc-chat://stream/{name}/{ts}-{nonce}` (per delivery)        |
+| `read` returns nothing      | `read` returns the payload from a 30s in-memory bridge       |
+| `POST /receive` + `GET /sse` | `POST /api/v1/{status,receive,read,observe}` via b3nd-move   |
+| `app.js` uses EventSource   | `app.js` does NDJSON observe + JSON read against b3nd-move   |
+
+Test files actually shipped:
+
+- `tests/protocol_test.ts` — 18 tests
+- `tests/node_test.ts` — 12 tests
+- `tests/serve_test.ts` — 4 integration tests (HTTP wire via HttpClient)
+- `tests/tail_test.ts` — 2 tests for the terminal viewer's iterator
+- `tests/e2e_claude_test.ts` — 1 env-gated test that drives a real
+  `claude --print` session through the plugin
+
+The MCP layer ships in `plugin/.claude-plugin/mcp-server/mod.ts` and is
+verified by interactive smoke + the e2e test.
