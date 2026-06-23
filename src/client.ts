@@ -2,18 +2,16 @@
  * @module
  * Client-side cc-chat helpers. Wraps a b3nd-move HTTP client (or any
  * ProtocolInterfaceNode-shaped object — see `observeStreamFromRig`) and
- * exposes a uniform `{ send, read, status, observeStream }` interface for
+ * exposes a uniform `{ send, read, observeStream }` interface for
  * UIs and CLI tools.
  *
- * The fallback chain implemented here is what makes cc-chat work over any
- * transport:
- *   1. `observe` — preferred. b3nd-move's HTTP wire serves a streamed
- *      NDJSON of URI batches; we yield each as the transport emits it.
- *   2. (in MCP contexts) `resources/subscribe` — same idea, different
- *      transport. Out of scope for this HTTP-client wrapper; agents use
- *      the b3nd plugin's MCP tools directly.
- *   3. Polling `read` — last resort, only when neither stream is
- *      available. Off by default; opt in with `pollMs`.
+ * `observeStream` drives `HttpClient.observe` — b3nd-move's HTTP wire
+ * serves a streamed NDJSON of URI batches; for each batch the helper
+ * calls `read` to fetch payloads and yields `Delivery` values. For
+ * MCP contexts, agents use the b3nd plugin's MCP tools directly
+ * (`resources/subscribe`, `b3nd_read`). If a deployment needs polling,
+ * it can call `read` periodically itself — there is no built-in polling
+ * fallback here.
  *
  * No server-side observe variants. cc-chat-specific behavior — block-and-
  * collect, roster derivation — lives in client-only helpers (see
@@ -41,10 +39,8 @@ export type { StatusResult };
 export interface CcChatClientOpts {
   /** Target rig base URL, e.g. http://127.0.0.1:7373 */
   url: string;
-  /** URI root, e.g. `cc-chat://`. Default `cc-chat://`. */
+  /** URI root, e.g. `immutable://open/cc-chat/`. */
   root?: string;
-  /** Optional polling fallback interval in ms. If unset, no polling. */
-  pollMs?: number;
 }
 
 export interface Delivery {

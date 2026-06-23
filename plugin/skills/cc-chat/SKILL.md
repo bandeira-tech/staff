@@ -58,8 +58,8 @@ Never install or scaffold without an explicit `AskUserQuestion` answer.
 **Root is operator-chosen.** It is whatever URI prefix the user mounted
 cc-chat at — `cc-chat://`, `chat://team-a/`, `workspace://abcd/`,
 `https://example.com/rooms/x/`, anything well-formed that ends with `/`.
-Ask the user for it on first use; suggest `cc-chat://` only as a starting
-default if they have no preference. Save it for the rest of the session.
+Ask the user for it on first use; suggest `immutable://open/cc-chat/` as a
+starting default if they have no preference. Save it for the rest of the session.
 
 - `<name>` — `[a-z0-9][a-z0-9-]{0,31}`. Lowercase, no spaces, hyphens ok.
 - `<seq>` — `<ts>-<nonce>` where `<ts>` is `YYYYMMDDhhmmss` UTC and

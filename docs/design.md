@@ -30,11 +30,10 @@ src/
   tail.ts        — async iterator over remote deliveries
   mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts   — URI shape, name validation (18 tests)
-  client_test.ts     — HTTP wire round-trip (4 tests)
-  roster_test.ts     — roster derivation (2 tests)
+  protocol_test.ts   — URI shape, name validation (20 tests)
+  client_test.ts     — HTTP wire round-trip (1 test)
+  roster_test.ts     — roster derivation (3 tests)
   tail_test.ts       — tail iterator (2 tests)
-  e2e_claude_test.ts — env-gated e2e against a real bnd rig (1 test)
 web/
   index.html     — static UI shell; reads ?url= and ?root= from query string
   app.js         — NDJSON observe + JSON read loop, DOM update, presence panel
@@ -61,39 +60,60 @@ works. See [`docs/bootstrap.md`](bootstrap.md) for how to connect to one.
 ## Client API (`src/client.ts`)
 
 ```ts
-class CcChatClient {
-  constructor(opts: { url: string; root: string })
-  receive(name: string, payload: string): Promise<void>
-  announce(name: string, event: "join" | "leave"): Promise<void>
-  observe(pattern?: string): AsyncIterable<{ uri: string; payload: string }>
+// Factory — returns a CcChatClient interface
+function ccChatClient(opts: CcChatClientOpts): CcChatClient
+
+interface CcChatClientOpts {
+  url: string;   // target rig base URL
+  root?: string; // URI root, e.g. "immutable://open/cc-chat/"
 }
+
+interface CcChatClient {
+  readonly url: string;
+  readonly root: string;
+  send(uri: string, payload: string): Promise<{ accepted: boolean; error?: string }>;
+  read(uris: string[]): Promise<Delivery[]>;
+  observeStream(pattern: string, signal: AbortSignal): AsyncIterable<Delivery>;
+}
+
+// In-process / test variant — drives any ObserveReadNode (b3nd rig, stub, etc.)
+async function* observeStreamFromRig(
+  rig: ObserveReadNode,
+  pattern: string,
+  signal: AbortSignal,
+): AsyncIterable<Delivery>
 ```
 
 Thin wrapper over `@bandeira-tech/b3nd-move`'s `HttpClient`. Agents use
-the b3nd plugin's MCP tools directly; `CcChatClient` is for scripts,
-tests, and the web UI's fetch calls.
+the b3nd plugin's MCP tools directly; `ccChatClient` is for scripts,
+tests, and the web UI's fetch calls. `observeStream` drives
+`HttpClient.observe` (the NDJSON stream) plus `read`; there is no
+built-in polling fallback.
 
 ## Roster (`src/roster.ts`)
 
 ```ts
-function rosterFromObserve(
-  stream: AsyncIterable<{ uri: string }>,
+function rosterFromObserved(
   root: string,
-): AsyncIterable<Map<string, Date>>
+  deliveries: ObservedDelivery[],
+): Roster
+
+interface Roster { names: string[]; speaking: string[]; presence: string[] }
 ```
 
-Derives "who's around" by extracting the `<name>` segment from incoming
-URIs. No server-side roster — the UI applies a warm→cold gradient from
-observed traffic recency. Presence events (`presence/<name>/<seq>`) are
-distinguished from stream messages (`stream/<name>/<seq>`).
+Pure function — no rig, no IO. Extracts the `<channel>` and `<name>`
+segments from a snapshot of observed URIs. No server-side roster — the
+UI applies a warm→cold gradient from observed traffic recency. Presence
+events (`presence/<name>/<seq>`) are distinguished from stream messages
+(`stream/<name>/<seq>`).
 
 ## Protocol (`src/protocol.ts`)
 
 ```ts
 mintStreamUri(root: string, name: string): string
 mintPresenceUri(root: string, name: string): string
-parseUri(root: string, uri: string): { kind: "stream" | "presence"; name: string; seq: string } | null
-validateName(name: string): boolean
+parseUri(root: string, uri: string): { channel: "stream" | "presence"; name: string; seq: string; ts: string; nonce: string } | null
+isValidName(name: string): boolean
 ```
 
 Root is always a required argument. No default root is baked into the
@@ -113,13 +133,12 @@ app. That is what *present* feels like.
 
 ## What today's tests cover
 
-- `protocol_test.ts` — URI builders / parsers / validators (18 tests).
-- `client_test.ts` — receive→observe fanout over the HTTP wire (4 tests).
-- `roster_test.ts` — roster derivation from observe streams (2 tests).
+- `protocol_test.ts` — URI builders / parsers / validators (20 tests).
+- `client_test.ts` — receive→observe fanout over the HTTP wire (1 test).
+- `roster_test.ts` — roster derivation from a delivery snapshot (3 tests).
 - `tail_test.ts` — terminal tail iterator (2 tests).
 
-The e2e test (`CC_CHAT_E2E=1`) drives a real `bnd node` process and
-verifies the full round-trip. Task 10 captures a fresh transcript.
+Total: 26 tests.
 
 ## Divergences from the original sketch (post-pivot)
 

@@ -94,9 +94,9 @@ src/
   tail.ts        — async iterator over remote deliveries (used by scripts/tail.ts)
   mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts   — 18 tests
-  client_test.ts     —  4 tests (HTTP wire round-trip)
-  roster_test.ts     —  2 tests
+  protocol_test.ts   — 20 tests
+  client_test.ts     —  1 test  (HTTP wire round-trip)
+  roster_test.ts     —  3 tests
   tail_test.ts       —  2 tests
 plugin/
   .claude-plugin/
