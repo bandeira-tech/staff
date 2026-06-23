@@ -15,15 +15,7 @@ import {
   mintSeq,
   mintStreamUri,
   parseUri,
-  PATTERN_ALL,
-  PATTERN_PRESENCE_ALL,
-  PATTERN_STREAM_ALL,
-  SCHEME,
 } from "../src/protocol.ts";
-
-Deno.test("SCHEME is the cc-chat scheme prefix", () => {
-  assertEquals(SCHEME, "cc-chat://");
-});
 
 Deno.test("channels are stream and presence", () => {
   assertEquals(CHANNEL_STREAM, "stream");
@@ -64,58 +56,58 @@ Deno.test("mintSeq returns ts-nonce", () => {
 });
 
 Deno.test("mintStreamUri builds cc-chat://stream/{name}/{seq}", () => {
-  const uri = mintStreamUri("alice");
+  const uri = mintStreamUri("cc-chat://", "alice");
   assert(uri.startsWith("cc-chat://stream/alice/"));
-  const parsed = parseUri(uri);
-  assertEquals(parsed?.kind, "stream");
+  const parsed = parseUri("cc-chat://", uri);
+  assertEquals(parsed?.channel, "stream");
   assertEquals(parsed?.name, "alice");
 });
 
 Deno.test("mintPresenceUri builds cc-chat://presence/{name}/{seq}", () => {
-  const uri = mintPresenceUri("writer");
+  const uri = mintPresenceUri("cc-chat://", "writer");
   assert(uri.startsWith("cc-chat://presence/writer/"));
-  const parsed = parseUri(uri);
-  assertEquals(parsed?.kind, "presence");
+  const parsed = parseUri("cc-chat://", uri);
+  assertEquals(parsed?.channel, "presence");
   assertEquals(parsed?.name, "writer");
 });
 
 Deno.test("mintStreamUri throws on invalid name", () => {
-  assertThrows(() => mintStreamUri("Bad"));
+  assertThrows(() => mintStreamUri("cc-chat://", "Bad"));
 });
 
 Deno.test("two mintStreamUri calls produce distinct URIs", () => {
   // Mint many; the odds of two collisions are astronomically low.
   const seen = new Set<string>();
-  for (let i = 0; i < 200; i++) seen.add(mintStreamUri("a"));
+  for (let i = 0; i < 200; i++) seen.add(mintStreamUri("cc-chat://", "a"));
   assertEquals(seen.size, 200);
 });
 
 Deno.test("parseUri returns null on unknown scheme", () => {
-  assertEquals(parseUri("other://stream/x/20260623120005-abc123"), null);
+  assertEquals(parseUri("cc-chat://", "other://stream/x/20260623120005-abc123"), null);
 });
 
 Deno.test("parseUri returns null on unknown channel", () => {
-  assertEquals(parseUri("cc-chat://archive/x/20260623120005-abc123"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://archive/x/20260623120005-abc123"), null);
 });
 
 Deno.test("parseUri returns null on invalid name", () => {
-  assertEquals(parseUri("cc-chat://stream/Bad/20260623120005-abc123"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://stream/Bad/20260623120005-abc123"), null);
 });
 
 Deno.test("parseUri returns null on missing seq", () => {
-  assertEquals(parseUri("cc-chat://stream/alice"), null);
-  assertEquals(parseUri("cc-chat://stream/alice/"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://stream/alice"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://stream/alice/"), null);
 });
 
 Deno.test("parseUri returns null on malformed seq", () => {
-  assertEquals(parseUri("cc-chat://stream/alice/not-a-seq"), null);
-  assertEquals(parseUri("cc-chat://stream/alice/20260623120005-ABCDEF"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://stream/alice/not-a-seq"), null);
+  assertEquals(parseUri("cc-chat://", "cc-chat://stream/alice/20260623120005-ABCDEF"), null);
 });
 
 Deno.test("parseUri exposes ts and nonce", () => {
-  const parsed = parseUri("cc-chat://stream/alice/20260623120005-abc123");
+  const parsed = parseUri("cc-chat://", "cc-chat://stream/alice/20260623120005-abc123");
   assertEquals(parsed, {
-    kind: "stream",
+    channel: "stream",
     name: "alice",
     seq: "20260623120005-abc123",
     ts: "20260623120005",
@@ -123,8 +115,32 @@ Deno.test("parseUri exposes ts and nonce", () => {
   });
 });
 
-Deno.test("canned subscription patterns", () => {
-  assertEquals(PATTERN_ALL, "cc-chat://**");
-  assertEquals(PATTERN_STREAM_ALL, "cc-chat://stream/**");
-  assertEquals(PATTERN_PRESENCE_ALL, "cc-chat://presence/**");
+Deno.test("mintStreamUri runs under any operator-chosen root", () => {
+  const a = mintStreamUri("cc-chat://", "alice");
+  const b = mintStreamUri("chat://team-a/", "alice");
+  const c = mintStreamUri("workspace://abcd/", "alice");
+  if (!a.startsWith("cc-chat://stream/alice/")) throw new Error(a);
+  if (!b.startsWith("chat://team-a/stream/alice/")) throw new Error(b);
+  if (!c.startsWith("workspace://abcd/stream/alice/")) throw new Error(c);
 });
+
+Deno.test("parseUri returns null for URIs outside the configured root", () => {
+  const r = parseUri("chat://team-a/", "cc-chat://stream/alice/20260623120000-abcdef");
+  if (r !== null) throw new Error("expected null for wrong-root uri");
+});
+
+Deno.test("parseUri returns channel/name/seq for matches", () => {
+  const r = parseUri("workspace://abcd/", "workspace://abcd/stream/alice/20260623120000-abcdef");
+  if (!r || r.channel !== "stream" || r.name !== "alice") {
+    throw new Error(`bad parse: ${JSON.stringify(r)}`);
+  }
+});
+
+Deno.test("mintStreamUri throws when root is missing or malformed", () => {
+  let threw = 0;
+  try { mintStreamUri("", "alice"); } catch { threw++; }
+  try { mintStreamUri("cc-chat", "alice"); } catch { threw++; }      // no separator
+  try { mintStreamUri("cc-chat://no-trailing-slash", "alice"); } catch { threw++; }
+  if (threw !== 3) throw new Error(`expected 3 throws, got ${threw}`);
+});
+

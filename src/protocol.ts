@@ -19,7 +19,6 @@
  * All payloads are plain UTF-8 text. No JSON envelope.
  */
 
-export const SCHEME = "cc-chat://" as const;
 export const CHANNEL_STREAM = "stream" as const;
 export const CHANNEL_PRESENCE = "presence" as const;
 export type Channel = typeof CHANNEL_STREAM | typeof CHANNEL_PRESENCE;
@@ -80,30 +79,50 @@ export function mintSeq(date: Date = new Date()): string {
   return `${formatTs(date)}-${mintNonce()}`;
 }
 
+function requireRoot(root: string): string {
+  if (!root) throw new Error("root is required");
+  if (!/^[a-z][a-z0-9+.-]*:\/\//.test(root)) {
+    throw new Error(
+      `root must be a valid URI prefix (e.g. 'cc-chat://'): ${root}`,
+    );
+  }
+  if (!root.endsWith("/")) {
+    throw new Error(`root must end with '/', got: ${root}`);
+  }
+  return root;
+}
+
 /** Build a unique stream URI for a delivery from `name`. */
-export function mintStreamUri(name: string, date?: Date): string {
+export function mintStreamUri(root: string, name: string, date?: Date): string {
+  requireRoot(root);
   requireName(name);
-  return `${SCHEME}${CHANNEL_STREAM}/${name}/${mintSeq(date)}`;
+  return `${root}${CHANNEL_STREAM}/${name}/${mintSeq(date)}`;
 }
 
 /** Build a unique presence URI for a delivery from `name`. */
-export function mintPresenceUri(name: string, date?: Date): string {
+export function mintPresenceUri(
+  root: string,
+  name: string,
+  date?: Date,
+): string {
+  requireRoot(root);
   requireName(name);
-  return `${SCHEME}${CHANNEL_PRESENCE}/${name}/${mintSeq(date)}`;
+  return `${root}${CHANNEL_PRESENCE}/${name}/${mintSeq(date)}`;
 }
 
 /** Discriminated parse of a cc-chat URI. */
 export type ParsedUri =
-  | { kind: "stream"; name: string; seq: string; ts: string; nonce: string }
-  | { kind: "presence"; name: string; seq: string; ts: string; nonce: string };
+  | { channel: "stream"; name: string; seq: string; ts: string; nonce: string }
+  | { channel: "presence"; name: string; seq: string; ts: string; nonce: string };
 
 /**
- * Parse a URI under the cc-chat scheme. Returns null when the URI does
- * not belong to this protocol or has an unrecognized shape.
+ * Parse a URI under the given root. Returns null when the URI does
+ * not start with root, or has an unrecognized shape.
  */
-export function parseUri(uri: string): ParsedUri | null {
-  if (!uri.startsWith(SCHEME)) return null;
-  const rest = uri.slice(SCHEME.length);
+export function parseUri(root: string, uri: string): ParsedUri | null {
+  requireRoot(root);
+  if (!uri.startsWith(root)) return null;
+  const rest = uri.slice(root.length);
   const parts = rest.split("/");
   if (parts.length !== 3) return null;
   const [channel, name, seq] = parts;
@@ -112,15 +131,11 @@ export function parseUri(uri: string): ParsedUri | null {
   if (!m) return null;
   const [, ts, nonce] = m;
   if (channel === CHANNEL_STREAM) {
-    return { kind: "stream", name, seq, ts, nonce };
+    return { channel: "stream", name, seq, ts, nonce };
   }
   if (channel === CHANNEL_PRESENCE) {
-    return { kind: "presence", name, seq, ts, nonce };
+    return { channel: "presence", name, seq, ts, nonce };
   }
   return null;
 }
 
-/** Subscription patterns — useful canned ones. */
-export const PATTERN_ALL = `${SCHEME}**`;
-export const PATTERN_STREAM_ALL = `${SCHEME}${CHANNEL_STREAM}/**`;
-export const PATTERN_PRESENCE_ALL = `${SCHEME}${CHANNEL_PRESENCE}/**`;
