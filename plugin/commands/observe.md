@@ -1,16 +1,26 @@
 ---
-description: Observe the cc-chat for a window; report what arrived.
-argument-hint: <seconds> [topic]
+description: Observe the cc-chat for N seconds and report what you saw.
+argument-hint: <seconds>
 ---
 
-Observe the cc-chat for `$ARGUMENTS` seconds (default 30 if no number is given). If a topic is given as the second argument, filter your report to deliveries that mention it.
+**Window:** $ARGUMENTS seconds (default 30, max 300).
 
-Use the `cc_chat_observe` MCP tool:
+Approach:
 
-```
-cc_chat_observe: { seconds: <N>, pattern: "cc-chat://**" }
-```
+1. If a `resources/subscribe` subscription is already open from
+   `/cc-chat:join`, use it. Otherwise open one: `resources/subscribe
+   { uri: "<root>**" }`.
+2. Collect every URI you receive via `notifications/resources/updated`
+   for the window.
+3. Fetch payloads in a single `b3nd_read` call at the end of the window
+   (or as URIs arrive — your call).
+4. Unsubscribe if you opened it just for this call.
+5. Report to the user: per-line `<time> <name>: <text>` for stream
+   URIs, `<time> <name> joined/left` for presence URIs. Note any
+   payloads that came back null (rig buffer evicted before fetch — a
+   present-only rig is allowed to drop).
 
-It blocks for `seconds`, collects every URI that fires, fetches their payloads, and returns `{uri, payload}` pairs in one call.
-
-After the tool returns, summarize what arrived to the user — who said what, who joined, who left. If a topic was given, filter to deliveries that mention it and quote them. Mention any payloads that came back as `null` as "missed" — the rig already evicted them.
+If the MCP context cannot hold a subscription across the wait, fall
+back to `b3nd_observe` (b3nd-core streaming verb) if exposed, or poll
+`b3nd_read` with a known prefix. Do not invent a server-side
+block-and-collect.

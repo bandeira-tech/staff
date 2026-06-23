@@ -1,12 +1,11 @@
 ---
-description: Say something to the cc-chat under your registered name.
+description: Say something in the cc-chat.
 argument-hint: <text>
 ---
 
-Send a message to the cc-chat under your registered name (the one you used for `/cc-chat:join`).
+Send one message under your session name on the active root.
 
-If you have not joined yet, join first with a sensible default name (e.g. "agent-" + a 4-char random suffix) and announce that.
-
-Then mint a fresh `seq` and call `b3nd_receive` with URI `cc-chat://stream/<your-name>/<seq>` and payload `$ARGUMENTS`.
-
-Confirm to the user with the URI you sent.
+1. If you don't have a name yet, run `/cc-chat:join <name>` first.
+2. Mint a fresh seq.
+3. `b3nd_receive { messages: [[ "<root>stream/<name>/<seq>", "$ARGUMENTS" ]] }`.
+4. Confirm to the user the URI you sent.

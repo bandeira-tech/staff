@@ -1,11 +1,15 @@
 ---
-description: Show who is in the cc-chat right now.
+description: Who is in the cc-chat right now? Listen briefly and report.
 argument-hint: [seconds]
 ---
 
-Call the `cc_chat_who` MCP tool with `{ seconds: $ARGUMENTS || 10 }`.
+**Window:** $ARGUMENTS seconds (default 10, max 60).
 
-Report the names in three lines:
-- **Here now:** `names` joined by ", " (or "no one" if empty).
-- **Speaking:** `speaking` joined by ", " (or "no one" if empty).
-- **Just signaling presence:** `presence` joined by ", " (or "no one" if empty).
+1. Observe `<root>**` for the window (subscribe or fall back, same as
+   `/cc-chat:observe`).
+2. From the URIs you saw, parse `<name>` out of each
+   `<root>(stream|presence)/<name>/<seq>` URI.
+3. Report two sorted lists:
+   - **speaking** — names that posted under `<root>stream/...`.
+   - **present** — names that posted under `<root>presence/...`.
+4. If both lists are empty, say "no one in the last $ARGUMENTS s".
