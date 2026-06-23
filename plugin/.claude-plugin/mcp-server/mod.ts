@@ -85,6 +85,20 @@ const TOOLS = [
       required: ["seconds"],
     },
   },
+  {
+    name: "cc_chat_who",
+    description:
+      "Listen for `seconds` (default 10, max 60) and return the set of participant names that fired any URI during the window — answers 'who's here right now?'. Distinct from cc_chat_observe in that it returns only the name roster, not message contents.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        seconds: {
+          type: "number",
+          description: "Listening window length in seconds (default 10).",
+        },
+      },
+    },
+  },
 ];
 
 interface ObservedDelivery {
@@ -166,6 +180,39 @@ async function callTool(rig: Rig, name: string, args: Record<string, unknown>) {
         content: [{
           type: "text",
           text: JSON.stringify({ pattern, seconds, observed }, null, 2),
+        }],
+        isError: false,
+      };
+    }
+    case "cc_chat_who": {
+      const a = args as { seconds?: number };
+      const seconds = Math.max(
+        1,
+        Math.min(60, Math.floor(a.seconds ?? 10)),
+      );
+      const observed = await observeWindow(rig, DEFAULT_PATTERN, seconds);
+      const namesByChannel: Record<string, Set<string>> = {
+        stream: new Set(),
+        presence: new Set(),
+      };
+      for (const { uri } of observed) {
+        const m = /^cc-chat:\/\/(stream|presence)\/([^/]+)\//.exec(uri);
+        if (!m) continue;
+        namesByChannel[m[1]].add(m[2]);
+      }
+      const allNames = new Set<string>([
+        ...namesByChannel.stream,
+        ...namesByChannel.presence,
+      ]);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            seconds,
+            names: [...allNames].sort(),
+            speaking: [...namesByChannel.stream].sort(),
+            presence: [...namesByChannel.presence].sort(),
+          }, null, 2),
         }],
         isError: false,
       };
