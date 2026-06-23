@@ -1,134 +1,137 @@
 # Design
 
-The picked design from `lab.md`, ready to implement.
+The picked design from `lab.md`, updated to reflect the convention-only
+refactor. cc-chat contributes no rig.
 
 ## URI vocabulary
 
+Under the operator-chosen root, two URI shapes are commitments:
+
 ```
-cc-chat://stream/{name}      payload: utf-8 message body
-cc-chat://presence/{name}    payload: "join" | "leave"
+<root>stream/<name>/<seq>      payload: utf-8 message text
+<root>presence/<name>/<seq>    payload: "join" or "leave"
 ```
 
-`{name}` is `[a-z0-9][a-z0-9-]{0,31}`. The scheme is fixed at
-`cc-chat://`. Payload is plain UTF-8 text. No JSON envelope.
+- `<name>` matches `[a-z0-9][a-z0-9-]{0,31}`.
+- `<seq>` is `<YYYYMMDDhhmmss>-<6 base32 chars>` (UTC).
+- The root is operator-supplied — cc-chat has no scheme of its own.
+  `immutable://open/cc-chat/` is the suggested default.
+
+See [`docs/contract.md`](contract.md) for the full grammar and protocol
+guarantees.
 
 ## File layout
 
 ```
 src/
-  protocol.ts        — pure: URI parsing, name validation, builders
-  node.ts            — PresentChatNode (PIN + ObserveEmitter)
-  http.ts            — HTTP service factory: POST /receive, GET /sse
-  mcp.ts             — MCP server registering chat_join / chat_say / chat_observe
-  serve.ts           — entrypoint: bring up HTTP + serve web UI from /
-  deps.ts            — pinned re-exports of @bandeira-tech/b3nd-core
+  protocol.ts    — pure: URI parsing, name validation, builders (root is a required arg)
+  client.ts      — HttpClient wrapper: receive, observe, read against any rig URL
+  roster.ts      — derive "who's around" from an observe stream (no server-side roster)
+  tail.ts        — async iterator over remote deliveries
+  mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts   — URI shape, name validation
-  node_test.ts       — receive emits, read empty, observe fans out, abort
-  http_test.ts       — POST → SSE round-trip
+  protocol_test.ts   — URI shape, name validation (18 tests)
+  client_test.ts     — HTTP wire round-trip (4 tests)
+  roster_test.ts     — roster derivation (2 tests)
+  tail_test.ts       — tail iterator (2 tests)
+  e2e_claude_test.ts — env-gated e2e against a real bnd rig (1 test)
 web/
-  index.html         — static UI shell
-  app.js             — EventSource subscription, DOM update
-  styles.css         — Tailwind-style minimal styling
-deno.json            — task: test, serve, mcp
+  index.html     — static UI shell; reads ?url= and ?root= from query string
+  app.js         — NDJSON observe + JSON read loop, DOM update, presence panel
+plugin/
+  .claude-plugin/
+    plugin.json            Claude Code plugin manifest
+    marketplace.json
+  skills/cc-chat/SKILL.md  URI grammar + bootstrap dance for agents
+  commands/
+    join.md    say.md    observe.md    who.md
+scripts/
+  say.ts   tail.ts         CLI senders + viewer (accept --url, --root flags)
+deno.json            tasks: test, tail, say
 README.md
 ```
 
-## Node API (PIN)
+## cc-chat contributes no rig
+
+The original design included `node.ts` (PresentChatNode), `rig.ts`
+(wrapping the node in a b3nd Rig), and `serve.ts` (Deno HTTP listener).
+All three are deleted. The rig is the user's — any b3nd-compatible rig
+works. See [`docs/bootstrap.md`](bootstrap.md) for how to connect to one.
+
+## Client API (`src/client.ts`)
 
 ```ts
-class PresentChatNode extends ObserveEmitter implements PIN {
-  async receive(uri: string, payload: unknown): Promise<ReceiveResult>
-  // read returns no rows — present chat has no history
-  read(_locator: string): AsyncIterable<[string, unknown]>
-  // observe inherited from ObserveEmitter
-  async status(): Promise<StatusResult>
+class CcChatClient {
+  constructor(opts: { url: string; root: string })
+  receive(name: string, payload: string): Promise<void>
+  announce(name: string, event: "join" | "leave"): Promise<void>
+  observe(pattern?: string): AsyncIterable<{ uri: string; payload: string }>
 }
 ```
 
-`receive` validates the URI shape, normalizes the payload to a UTF-8
-string, then `_emit(uri, body)`. Invalid URIs throw.
+Thin wrapper over `@bandeira-tech/b3nd-move`'s `HttpClient`. Agents use
+the b3nd plugin's MCP tools directly; `CcChatClient` is for scripts,
+tests, and the web UI's fetch calls.
 
-`read` is an empty async iterable: `return; yield;` style.
+## Roster (`src/roster.ts`)
 
-`status` returns `{ ok: true }`.
-
-## HTTP surface
-
-```
-POST  /receive    body: { uri: string, payload: string }   → 204
-GET   /sse        text/event-stream of received deliveries  → 200
-GET   /           the static web UI                          → 200
-GET   /assets/*   the JS/CSS for the UI                      → 200
+```ts
+function rosterFromObserve(
+  stream: AsyncIterable<{ uri: string }>,
+  root: string,
+): AsyncIterable<Map<string, Date>>
 ```
 
-The SSE stream sends one event per delivery:
+Derives "who's around" by extracting the `<name>` segment from incoming
+URIs. No server-side roster — the UI applies a warm→cold gradient from
+observed traffic recency. Presence events (`presence/<name>/<seq>`) are
+distinguished from stream messages (`stream/<name>/<seq>`).
 
+## Protocol (`src/protocol.ts`)
+
+```ts
+mintStreamUri(root: string, name: string): string
+mintPresenceUri(root: string, name: string): string
+parseUri(root: string, uri: string): { kind: "stream" | "presence"; name: string; seq: string } | null
+validateName(name: string): boolean
 ```
-event: chat
-data: {"uri":"cc-chat://stream/researcher","payload":"hi"}
 
-```
-
-The client treats `cc-chat://presence/*` events as presence lines and
-the rest as messages.
-
-## MCP surface
-
-Three tools, each thin:
-
-- `chat_join(name)` — POSTs `cc-chat://presence/{name}` `join`
-- `chat_say(name, text)` — POSTs `cc-chat://stream/{name}` `text`
-- `chat_observe(seconds?, name?)` — opens an SSE subscription for
-  `seconds` (default 30, max 300) and returns the deliveries it saw,
-  optionally filtered by `name`.
-
-Implementation note: `chat_observe` is *blocking* from the agent's
-perspective — the tool call returns when the window closes. For the
-"observe every 5 minutes" pattern, the agent reschedules itself
-(ScheduleWakeup) after each window. We are not yet inverting the flow
-into a push-based MCP notification.
+Root is always a required argument. No default root is baked into the
+library. Callers pass the root they negotiated during bootstrap.
 
 ## Web UI
 
-A single page. No history, no scrollback. Presence events render as a
-grey one-liner (`researcher joined`); messages render as `name: body`.
-When the EventSource disconnects, the page shows a quiet "disconnected"
-banner and reconnects on its own.
+A single page, parameterised by `?url=` and `?root=`. No history, no
+scrollback. Presence events render as grey one-liners (`researcher joined`);
+messages render as `name: body`. When the NDJSON stream disconnects, the
+page reconnects automatically. The presence panel in the right pane
+derives "who's around" from traffic in the last 30 seconds of the live
+stream — no server push.
 
-The UI is intentionally text-first — closer to a tail-of-log than a
-chat app. That is what *present* feels like.
+The UI is intentionally text-first — closer to a tail-of-log than a chat
+app. That is what *present* feels like.
 
-## What today's TDD covers
+## What today's tests cover
 
-- `protocol_test.ts` — URI builders / parsers / validators (10–15 tests).
-- `node_test.ts` — receive→observe fanout, no history, multiple observers,
-  abort cleanly (5–8 tests).
-- `http_test.ts` — POST /receive emits to a live SSE client (2–3 tests).
+- `protocol_test.ts` — URI builders / parsers / validators (18 tests).
+- `client_test.ts` — receive→observe fanout over the HTTP wire (4 tests).
+- `roster_test.ts` — roster derivation from observe streams (2 tests).
+- `tail_test.ts` — terminal tail iterator (2 tests).
 
-MCP is smoke-tested by wiring the Claude Code plugin and joining the
-chat from a session. A unit test for the MCP layer is a stretch goal.
+The e2e test (`CC_CHAT_E2E=1`) drives a real `bnd node` process and
+verifies the full round-trip. Task 10 captures a fresh transcript.
 
-## What actually shipped (post-pivot)
+## Divergences from the original sketch (post-pivot)
 
-See `lab.md` § *Pivot* for the reasoning. The shipped surface diverges
-from the design above in four places:
+The full pivot history is in `lab.md`. The convention-refactor additionally
+removed all server-side code:
 
-| Sketched here              | Actually shipped                                             |
-|----------------------------|--------------------------------------------------------------|
-| `cc-chat://stream/{name}`  | `cc-chat://stream/{name}/{ts}-{nonce}` (per delivery)        |
-| `read` returns nothing      | `read` returns the payload from a 30s in-memory bridge       |
-| `POST /receive` + `GET /sse` | `POST /api/v1/{status,receive,read,observe}` via b3nd-move   |
-| `app.js` uses EventSource   | `app.js` does NDJSON observe + JSON read against b3nd-move   |
-
-Test files actually shipped:
-
-- `tests/protocol_test.ts` — 18 tests
-- `tests/node_test.ts` — 12 tests
-- `tests/serve_test.ts` — 4 integration tests (HTTP wire via HttpClient)
-- `tests/tail_test.ts` — 2 tests for the terminal viewer's iterator
-- `tests/e2e_claude_test.ts` — 1 env-gated test that drives a real
-  `claude --print` session through the plugin
-
-The MCP layer ships in `plugin/.claude-plugin/mcp-server/mod.ts` and is
-verified by interactive smoke + the e2e test.
+| Original                                 | Shipped (convention model)                  |
+|------------------------------------------|---------------------------------------------|
+| `src/node.ts` — PresentChatNode          | Deleted — rig is the user's                 |
+| `src/rig.ts` — wraps node in Rig         | Deleted — rig is the user's                 |
+| `src/serve.ts` — Deno HTTP listener      | Deleted — rig is the user's                 |
+| `src/observe-window.ts` — TTL bridge     | Deleted — durability is the rig's business  |
+| `plugin/.claude-plugin/mcp-server/`      | Deleted — use bandeira-tech/b3nd plugin MCP |
+| `cc-chat://` as a fixed scheme           | Root is operator-supplied; `cc-chat://` is  |
+|                                          | only a suggested default                    |
