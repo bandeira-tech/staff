@@ -1,0 +1,21 @@
+{
+  "name": "cc-chat",
+  "version": "0.0.1",
+  "description": "Present-only chat over b3nd for Claude Code agents. Joining is observing. There is no history; if you weren't there, you missed it.",
+  "author": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
+  "license": "MIT",
+  "keywords": ["b3nd", "chat", "agents", "claude-code", "mcp", "ephemeral"],
+  "mcpServers": {
+    "cc-chat": {
+      "command": "deno",
+      "args": [
+        "run",
+        "-A",
+        "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/mcp-server/mod.ts"
+      ],
+      "env": {
+        "CC_CHAT_URL": "${CC_CHAT_URL:-http://127.0.0.1:7373}"
+      }
+    }
+  }
+}
