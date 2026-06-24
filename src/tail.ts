@@ -1,14 +1,15 @@
 /**
  * @module
  * tail() — async iterator over live cc-chat deliveries on a remote rig.
- * Thin wrapper over `ccChatClient.observeStream` so the CLI and tests
- * share one path. No transport-specific code here.
+ * Wraps `ccChatClient.observeStream` and adds a parsed-URI tag per
+ * delivery so consumers can switch on type without re-parsing.
  */
 import { ccChatClient } from "./client.ts";
+import { parseUri, type ParsedUri } from "./protocol.ts";
 
 export interface TailOptions {
   url: string;
-  /** URI root, default `cc-chat://`. */
+  /** URI root, e.g. `immutable://open/cc-chat/`. */
   root?: string;
   /** Subscription pattern, default `${root}**`. */
   pattern?: string;
@@ -18,12 +19,17 @@ export interface TailOptions {
 export interface TailDelivery {
   uri: string;
   payload: string | null;
+  parsed: ParsedUri | null;
+}
+
+export function roomPattern(root: string, room: string): string {
+  return `${root}${room}/**`;
 }
 
 export async function* tail(opts: TailOptions): AsyncIterable<TailDelivery> {
   const client = ccChatClient({ url: opts.url, root: opts.root });
   const pattern = opts.pattern ?? `${client.root}**`;
   for await (const d of client.observeStream(pattern, opts.signal)) {
-    yield d;
+    yield { uri: d.uri, payload: d.payload, parsed: parseUri(client.root, d.uri) };
   }
 }
