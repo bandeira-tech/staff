@@ -109,7 +109,25 @@
     color:var(--accent);font-weight:700;font-size:11px;
     text-transform:uppercase;letter-spacing:.1em;
   }
-  .row.output-card .output-body{color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .row.output-card .output-body{color:var(--ink);word-break:break-word}
+  /* markdown inside message bodies */
+  .row .body code, .row .output-card .output-body code{
+    font-family:var(--mono);font-size:.92em;
+    background:#0c1110;border:1px solid #1a1f1d;
+    padding:0 4px;border-radius:3px;color:var(--accent);
+  }
+  .row .body pre, .row .output-card .output-body pre{
+    margin:6px 0;padding:8px 10px;background:#0c1110;
+    border:1px solid #1a1f1d;border-radius:4px;
+    overflow-x:auto;
+  }
+  .row .body pre code, .row .output-card .output-body pre code{
+    background:none;border:0;padding:0;color:var(--ink);
+    font-size:.92em;white-space:pre;
+  }
+  .row .body strong, .row .output-card .output-body strong{color:var(--ink);font-weight:700}
+  .row .body em, .row .output-card .output-body em{color:var(--ink);font-style:italic}
+  .row .body a, .row .output-card .output-body a{color:var(--accent);text-decoration:underline}
   .empty{color:var(--muted);font-style:italic;padding:60px 0;text-align:center}
   .empty small{display:block;margin-top:6px;font-size:11px}
   footer{

@@ -213,7 +213,7 @@
         const whoEl = row.querySelector(".who");
         whoEl.textContent = parsed.who;
         whoEl.style.color = colorFor(parsed.who);
-        row.querySelector(".body").textContent = payload ?? "";
+        row.querySelector(".body").innerHTML = renderMarkdown(payload ?? "");
         noteSeen(parsed.who);
         break;
       }
@@ -230,7 +230,7 @@
         const badgeEl = row.querySelector(".mention-badge");
         badgeEl.textContent = `@${parsed.target}`;
         badgeEl.style.color = colorFor(parsed.target);
-        row.querySelector(".body").textContent = payload ?? "";
+        row.querySelector(".body").innerHTML = renderMarkdown(payload ?? "");
         noteSeen(parsed.who);
         break;
       }
@@ -279,7 +279,7 @@
           renderTimestamp() +
           `<span class="output-label">deliverable</span>` +
           `<span class="body output-body"></span>`;
-        row.querySelector(".output-body").textContent = payload ?? "";
+        row.querySelector(".output-body").innerHTML = renderMarkdown(payload ?? "");
         break;
       }
       default:
@@ -344,6 +344,39 @@
 
   function escHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // ---- Minimal markdown renderer for chat messages ----
+  // Handles: fenced code blocks, inline code, bold, italic, links, line breaks.
+  // Escapes HTML first so payload content cannot inject markup.
+  function renderMarkdown(text) {
+    if (!text) return "";
+    const blocks = [];
+    text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      blocks.push({ lang, code: code.replace(/\n$/, "") });
+      return ` B${blocks.length - 1} `;
+    });
+    const inlines = [];
+    text = text.replace(/`([^`\n]+)`/g, (_, code) => {
+      inlines.push(code);
+      return ` I${inlines.length - 1} `;
+    });
+    text = escHtml(text);
+    text = text.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
+      const safe = /^(https?:|mailto:)/i.test(url);
+      if (!safe) return `[${label}](${escHtml(url)})`;
+      return `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    });
+    text = text.replace(/(^|[^*\w])\*\*([^*\n]+)\*\*(?!\*)/g, "$1<strong>$2</strong>");
+    text = text.replace(/(^|[^_\w])__([^_\n]+)__(?!_)/g, "$1<strong>$2</strong>");
+    text = text.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    text = text.replace(/(^|[^_\w])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
+    text = text.replace(/ I(\d+) /g, (_, i) => `<code>${escHtml(inlines[+i])}</code>`);
+    text = text.replace(/\n/g, "<br>");
+    text = text.replace(/ B(\d+) /g, (_, i) => {
+      return `<pre><code>${escHtml(blocks[+i].code)}</code></pre>`;
+    });
+    return text;
   }
 
   async function readBatch(uris) {
