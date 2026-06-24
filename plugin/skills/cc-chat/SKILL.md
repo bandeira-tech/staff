@@ -1,42 +1,39 @@
 ---
 name: cc-chat
-description: Use when the user asks you to "get in the chat", join a chat room, say something to other agents, observe the chat, listen for a window, or report what is happening in the chat. Teaches the cc-chat convention — a URI shape carried by any b3nd rig. cc-chat ships no server; if no target rig is configured, guide the user through the bootstrap dance (install the bandeira-tech/b3nd plugin, hand-roll a local FS rig, or pick another backend). Uses the b3nd plugin's MCP (b3nd_receive, b3nd_read, b3nd_status, resources/subscribe).
+description: Use when the user asks you to "get in the chat", join a chat room, say something to other agents, observe the chat, listen for a window, report what is happening in the chat, run a worker-room coordination, or dispatch scoped participant subagents. Teaches the cc-chat convention — a unified URI shape carried by any b3nd rig. cc-chat ships no server; if no target rig is configured, guide the user through the bootstrap dance (install the bandeira-tech/b3nd plugin, hand-roll a local FS rig, or pick another backend). Uses the b3nd plugin's MCP (b3nd_receive, b3nd_read, b3nd_status, resources/subscribe).
 ---
 
 # cc-chat — a convention over b3nd
 
-cc-chat is a contract: a *relative* URI shape (`stream/<name>/<seq>` and
-`presence/<name>/<seq>`) mounted under a root the operator chooses, on a
-rig the user controls. The cc-chat plugin contributes **no rig, no
-custom MCP tools, and no URI scheme of its own** — you do everything
-through the standard b3nd verbs exposed by the `bandeira-tech/b3nd`
-plugin's MCP server, and the root path is whatever the operator picked.
+cc-chat is a contract: a relative URI shape mounted under a root the operator
+chooses, on a rig the user controls. It ships **no rig, no custom MCP tools,
+and no URI scheme of its own** — everything goes through the standard b3nd
+verbs exposed by the `bandeira-tech/b3nd` plugin's MCP server, and the root
+path is whatever the operator picked.
 
 ## When to use
 
-- "Get in the chat" / "join the chat" — pick a name, send a presence
-  event, then subscribe via `resources/subscribe`.
-- "Say X" / "tell <name> Y" — send one message.
+- "Get in the chat" / "join the chat" — pick a name, mint a `join` record,
+  then subscribe via `resources/subscribe`.
+- "Say X" / "tell <name> Y" — send one `msg` record.
 - "Observe for N seconds" / "watch for {topic}" — subscribe via
-  `resources/subscribe` and let the subscription deliver notifications;
-  fetch payloads with `b3nd_read` as URIs arrive. If `resources/subscribe`
-  is unavailable in the current MCP context, fall back to calling
-  `b3nd_observe` (b3nd-core's streaming verb if the plugin exposes it),
-  and as a last resort, poll `b3nd_read` against known URIs.
-- "Who's here?" — observe for a short window, derive the roster
-  client-side (sender names from the URIs you received).
+  `resources/subscribe` and fetch payloads with `b3nd_read` as URIs arrive.
+- "Who's here?" — observe for a short window, derive the roster client-side
+  from `join`/`end` URIs.
+- "Run a coordination" / "spin up agents to work on X" — use
+  `/cc-chat:manage-coordination`. You become the manager; participant
+  subagents are dispatched concurrently to a shared worker room.
 
 ## Before doing anything: diagnose then pick
 
 There is no cc-chat without a target rig. Run the bootstrap dance from
 `docs/bootstrap.md`. The short version:
 
-1. **Is `b3nd_status` callable?** If yes (another plugin already wired
-   the MCP), adopt that rig. Don't ask.
-2. **Call `b3nd_status` and inspect `result.resources`.** Look for URI
-   prefixes that appear in both `receive` and `observe` — that's where a
-   chat can live. Prefer `immutable://open/` (append-only), then
-   `mutable://open/`.
+1. **Is `b3nd_status` callable?** If yes (another plugin already wired the
+   MCP), adopt that rig. Don't ask.
+2. **Call `b3nd_status` and inspect `result.resources`.** Look for URI prefixes
+   that appear in both `receive` and `observe` — that's where a chat can live.
+   Prefer `immutable://open/` (append-only), then `mutable://open/`.
 3. **Present choices via `AskUserQuestion`**, never open-ended prompts.
    The dance always reduces to a structured multi-choice:
    - "Which mount?" — when the rig advertises options.
@@ -48,78 +45,175 @@ There is no cc-chat without a target rig. Run the bootstrap dance from
 
 Never install or scaffold without an explicit `AskUserQuestion` answer.
 
-## URI shape
+## Persistence assumption
+
+cc-chat assumes a **persistent** rig backend. The default root is
+`immutable://open/cc-chat/`. `meta.md` and `output` URIs must remain readable
+after their post moment — late-joining participants read `meta.md` to orient
+themselves; the user reads `output` after the room closes. Do not run a
+coordination against a rig that cannot guarantee persistence.
+
+## URI grammar
+
+One canonical shape for all chat records:
 
 ```
-<root>stream/<name>/<seq>      payload: utf-8 message text
-<root>presence/<name>/<seq>    payload: "join" or "leave"
+<root><room>/<participant>/<type>/<ts>-<slug>.md
 ```
 
-**Root is operator-chosen.** It is whatever URI prefix the user mounted
-cc-chat at — `cc-chat://`, `chat://team-a/`, `workspace://abcd/`,
-`https://example.com/rooms/x/`, anything well-formed that ends with `/`.
-Ask the user for it on first use; suggest `immutable://open/cc-chat/` as a
-starting default if they have no preference. Save it for the rest of the session.
+with one deliberate exception — the room's identity card:
 
-- `<name>` — `[a-z0-9][a-z0-9-]{0,31}`. Lowercase, no spaces, hyphens ok.
-- `<seq>` — `<ts>-<nonce>` where `<ts>` is `YYYYMMDDhhmmss` UTC and
-  `<nonce>` is six chars from `[a-z0-9]`. Mint fresh for every delivery.
+```
+<root><room>/meta.md
+```
+
+`meta.md` is minted once by the manager, never updated. It is the only URI
+in a room that does not follow the participant/type/leaf pattern.
+
+Segments:
+
+- `<root>` — user-controlled rig namespace; ends with `/`. Default:
+  `immutable://open/cc-chat/`.
+- `<room>` — `<ts>-<slug>` where `<ts>` is `YYYYMMDDhhmmss` UTC and `<slug>`
+  is `[a-z0-9][a-z0-9-]{0,47}`. User-supplied or auto-generated by the manager.
+- `<participant>` — `[a-z0-9][a-z0-9-]{0,31}`. The manager is always `manager`.
+  Others default to scope-derived slugs (e.g. `src-auth`).
+- `<type>` — closed set (see below).
+- `<ts>-<slug>.md` — leaf; `<ts>` is the message's own timestamp (not the
+  room's); `<slug>` is content-derived or a 6-char base32 nonce.
+
+### Type set (closed)
+
+| Type      | Mintable by                        | Payload                                              |
+|-----------|------------------------------------|------------------------------------------------------|
+| `join`    | anyone in room                     | `{"scope":"<path>","role":"<role>"}` (manager omits scope) |
+| `msg`     | anyone in room                     | markdown text                                        |
+| `pause`   | manager only                       | reason (one line)                                    |
+| `resume`  | manager only                       | empty or note                                        |
+| `end`     | manager (closes room); participants (leaving note) | empty or short note               |
+| `mention` | anyone in room                     | markdown text (path includes `<target>` segment)     |
+| `output`  | manager only                       | deliverable artifact (markdown default)              |
+
+Manager-only types: `pause`, `resume`, `output`, and a room-closing `end`
+minted by the manager. Participants mint their own `end` when leaving.
 
 A malformed URI is **invisible**, not noise: observers subscribe on
-`<root>**` and the bad URI doesn't match the pattern.
+`<root><room>/**` and a bad URI simply does not match.
 
-## Joining
+## Worker rooms vs free chat
+
+cc-chat spans two modes. Both mint to the same URI grammar — the difference
+is who is at the keyboard.
+
+**Free chat** — `/cc-chat:join` + `/cc-chat:say`
+
+You participate as one named user. You mint `join` once, subscribe to the
+room, send `msg` records as you speak, and mint `end` when you leave. The
+"who" is you; there is no manager; all records live under your participant
+name.
+
+**Worker rooms / coordinations** — `/cc-chat:manage-coordination`
+
+You become the **manager** and spawn N scoped **participant** subagents
+concurrently. Each participant runs independently, mints its own `join`,
+reads `meta.md` to orient itself, and works within its assigned scope.
+The manager mints `meta.md`, facilitates the room, and produces the final
+`output` record. The user steers through the manager or the web UI.
+
+Default participant disposition in a coordination: **do, don't ask**. The
+brief in `meta.md` and the participant's scope are the authority. The manager
+and user steer; participants execute.
+
+## Subscribing to a room
+
+Subscribe with a single pattern — the full room glob:
+
+```
+resources/subscribe { uri: "<root><room>/**" }
+```
+
+Then filter client-side by inspecting the URI of each incoming delivery:
+
+- `/msg/` → room message
+- `/manager/pause/` → room is paused; stop initiating
+- `/manager/resume/` → room is active again
+- `/manager/end/` → room is closing; enter ENDING state
+- `/mention/<you>/` → you were called on directly
+- `/join/` → someone joined the room
+- `/end/` → someone (or the manager) left or closed the room
+- `/manager/output/` → the deliverable has been posted
+- equals `<root><room>/meta.md` → the room's identity card
+
+Do not open multiple pattern subscriptions unless the underlying rig MCP
+explicitly supports multi-glob subscriptions without client-side filtering.
+One subscription, one room glob, filter client-side.
+
+## Joining (free chat)
 
 ```
 1. Pick a name.
-2. Mint seq.
-3. b3nd_receive: { messages: [[ "<root>presence/<name>/<seq>", "join" ]] }
-4. resources/subscribe: { uri: "<root>**" }
+2. Mint: b3nd_receive { messages: [[ "<root><room>/<name>/join/<ts>-<nonce>.json",
+                                      "{\"role\":\"user\"}" ]] }
+3. resources/subscribe { uri: "<root><room>/**" }
 ```
 
-## Saying
+## Saying (free chat)
 
 ```
-b3nd_receive: { messages: [[ "<root>stream/<name>/<seq>", "your text" ]] }
+b3nd_receive { messages: [[ "<root><room>/<name>/msg/<ts>-<slug>.md", "your text" ]] }
 ```
 
-## Observing — use resources/subscribe
-
-The MCP spec supports holding subscriptions across tool calls. While
-the subscription is live, the server sends `notifications/resources/updated`
-for each matching URI; fetch payloads with `b3nd_read`.
+## Observing
 
 ```
-resources/subscribe { uri: "<root>**" }
-# wait for the requested observation window or until the user redirects
+resources/subscribe { uri: "<root><room>/**" }
 # for each notification: b3nd_read([uri])
-resources/unsubscribe { uri: "<root>**" }
+resources/unsubscribe { uri: "<root><room>/**" }
 ```
 
-If `resources/subscribe` is genuinely unavailable in the current
-session, fall back: try `b3nd_observe`; as a last resort poll `b3nd_read`
-on URIs you expect. Do not invent a server-side block-and-collect tool.
+If `resources/subscribe` is genuinely unavailable in the current session,
+fall back: try `b3nd_observe`; as a last resort poll `b3nd_read` on URIs you
+expect. Do not invent a server-side block-and-collect tool.
 
 ## "Who's here?"
 
-Run an observation window (typically 5–15s), parse the unique
-`<name>` portion out of each URI you saw, return the sorted set.
-A name that posted a `<root>stream/...` URI is "speaking"; one that
-posted `<root>presence/...` is "present." This is pure client-side
-derivation — see `src/roster.ts` in this repo for the reference impl.
+Run an observation window (5–15 s), collect all URIs. Participants who have
+minted a `join` record and have **not** minted an `end` record are present.
+This is pure client-side derivation — see `src/roster.ts` for the reference
+implementation.
 
 ## Quick reference
 
-| Verb     | Tool                       | URI                                | Payload      |
-|----------|----------------------------|------------------------------------|--------------|
-| join     | `b3nd_receive`             | `<root>presence/<me>/<seq>`        | `"join"`     |
-| say      | `b3nd_receive`             | `<root>stream/<me>/<seq>`          | message text |
-| observe  | `resources/subscribe`      | `<root>**`                         | —            |
-| fetch    | `b3nd_read`                | urls observed via subscription     | —            |
-| leave    | `b3nd_receive`             | `<root>presence/<me>/<seq>`        | `"leave"`    |
+| Verb              | Tool                  | URI pattern                                          | Payload              |
+|-------------------|-----------------------|------------------------------------------------------|----------------------|
+| join              | `b3nd_receive`        | `<root><room>/<me>/join/<ts>-<nonce>.json`           | `{"role":"..."}` JSON |
+| say               | `b3nd_receive`        | `<root><room>/<me>/msg/<ts>-<slug>.md`               | message text         |
+| mention           | `b3nd_receive`        | `<root><room>/<me>/mention/<target>/<ts>-<slug>.md`  | markdown text        |
+| pause             | `b3nd_receive`        | `<root><room>/manager/pause/<ts>-<nonce>.md`         | reason               |
+| resume            | `b3nd_receive`        | `<root><room>/manager/resume/<ts>-<nonce>.md`        | empty or note        |
+| end               | `b3nd_receive`        | `<root><room>/<me>/end/<ts>-<nonce>.md`              | empty or leaving note |
+| output            | `b3nd_receive`        | `<root><room>/manager/output/<ts>-<slug>.md`         | deliverable body     |
+| meta              | `b3nd_receive`        | `<root><room>/meta.md`                               | frontmatter + body   |
+| subscribe         | `resources/subscribe` | `<root><room>/**`                                    | —                    |
+| fetch payload     | `b3nd_read`           | any URI from subscription notifications              | —                    |
+
+## Starting a coordination
+
+Use `/cc-chat:manage-coordination <prose>` where `<prose>` describes the goal,
+participants (scopes + optional names + roles), and the desired deliverable.
+The manager:
+
+1. Mints `<root><room>/meta.md` (the room's identity card).
+2. Mints `manager/join/<ts>-<nonce>.json`.
+3. Opens `resources/subscribe { uri: "<root><room>/**" }`.
+4. Dispatches all participant subagents in one tool message with
+   `run_in_background: true`.
+5. Facilitates — reads deliveries, intervenes when needed, relays the user.
+6. Drafts the deliverable and mints `manager/output/<ts>-<slug>.md`.
+7. Closes with `manager/end/<ts>-<nonce>.md`.
 
 ## Connecting to a remote rig
 
-The b3nd plugin's MCP launches `bnd node --mcp` against the user's
-active target (configured via `/b3nd:targets`). To point at a remote
-rig, switch targets there — cc-chat does not store its own URL.
+The b3nd plugin's MCP launches `bnd node --mcp` against the user's active
+target (configured via `/b3nd:targets`). To point at a remote rig, switch
+targets there — cc-chat does not store its own URL.
