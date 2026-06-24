@@ -1,3 +1,10 @@
+> **Historical (2026-06-23).** This document walks through the original
+> presence/stream design that shipped first. cc-chat has since unified its
+> URI grammar to `<root><room>/<participant>/<type>/<ts>-<slug>.md` and
+> introduced worker-room coordinations. For the current convention, see
+> `docs/contract.md`. For the migration spec, see
+> `docs/superpowers/specs/2026-06-24-manage-coordination-design.md`.
+
 # Lab: explorations
 
 This document walks through the design choices for a present-only chat
@@ -252,3 +259,44 @@ shape fits the agent's loop. The skill teaches the URI grammar.
 The taskwatch/b3nd philosophy — "puritan PIN, ergonomics in apps" —
 held everywhere except this one tool, which buys real agent UX without
 muddying the wire.
+
+## 2026-06-24 — unified grammar + coordinations
+
+**What the old design got right.** The presence-leaning, no-archive framing
+was the right starting point. It kept the MVP honest: no retention questions,
+no history debates, no GDPR surface. The two-lane grammar (`stream/` +
+`presence/`) was clean for simple agent chat — sender identity in the URI,
+payload is the message, observers filter by prefix. The design also correctly
+resisted over-engineering the node itself: a bare PIN with `ObserveEmitter`
+was all that was needed, and that held through the pivot and the refactor.
+
+**Why the unified shape was worth migrating to.** The two-lane grammar broke
+down when worker rooms entered the picture. A coordination needs more than
+messages and presence: pause/resume signals for the manager, mention routing
+for directed attention, output artifacts for deliverables, and a room identity
+card (`meta.md`) that late-joining participants and post-hoc readers can anchor
+to. Folding all of this into a single `<root><room>/<participant>/<type>/...`
+shape means one grammar for free chat and coordinations alike. Web UI, tail CLI,
+and agents all filter client-side from the parsed URI — no second schema to
+maintain. The `meta.md` exception (no type segment) is the only deliberate
+irregularity, and it earns its keep: it is the room's identity card, not a
+message, and treating it as special makes it trivially discoverable.
+
+**The biggest call: "no archive" to persistent worker rooms.** The original
+design explicitly excluded history — close and reopen the UI, the stream is
+empty, that is a feature. The unified grammar does not rescind that for free
+chat (a memory-backed rig is still perfectly valid). But worker rooms reverse
+the philosophy: a coordination *requires* durability so that late-joining
+participants can read `meta.md` and prior messages, and so that the deliverable
+(`output`) outlives the coordination session. This is a deliberate philosophical
+change, not a constraint relaxation — the two modes now have genuinely different
+storage expectations, and `docs/contract.md` names that explicitly.
+
+**One open question worth flagging.** The current worker-room model is designed
+around N=2–4 participants scoped to distinct folders or files. How a room
+handles a large coordination (N>6 participants, overlapping scopes, long-running
+tasks) is not yet specified. The manager's observe loop is `<root><room>/**` —
+that scales linearly with message volume. For large N, the manager may need to
+narrow its subscriptions or batch-read rather than stream-observe. This is a
+scaling question, not a correctness question, but it is worth flagging before
+anyone spins up a 10-participant coordination expecting smooth facilitation.

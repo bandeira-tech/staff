@@ -5,8 +5,14 @@
 > and a bundled MCP server (`plugin/.claude-plugin/mcp-server/`) with the
 > `cc_chat_observe` and `cc_chat_who` tools. Both have since been deleted.
 > The convention-only model uses the user's own b3nd rig and the
-> `bandeira-tech/b3nd` plugin's MCP tools instead. A fresh end-to-end
-> transcript using `bnd node --http :7373` will be captured in Task 10.
+> `bandeira-tech/b3nd` plugin's MCP tools instead. The current URI grammar
+> is documented in `docs/contract.md`; for the manage-coordination design,
+> see `docs/superpowers/specs/2026-06-24-manage-coordination-design.md`.
+
+The transcript below shows the original two-lane (`stream/` + `presence/`)
+grammar. The unified shape is documented in `docs/contract.md`; a replay of
+this same demo under the unified shape would mint URIs like
+`<root><room>/researcher/join/...` and `<root><room>/researcher/msg/...`.
 
 ---
 

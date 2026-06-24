@@ -1,6 +1,6 @@
 # b3nd-cc-chat
 
-A convention for present-leaning chat on any user-controlled b3nd rig.
+A convention for present-leaning chat and worker-room coordinations on any user-controlled b3nd rig.
 
 > **cc-chat is not a server you run from this repo.** It is an agreement
 > between senders and observers: mint URIs to the grammar, observe a root
@@ -19,6 +19,11 @@ A convention for present-leaning chat on any user-controlled b3nd rig.
   around. No scrollback.
 - **Human (terminal):** `deno task tail --url <rig-url>` — same data,
   plain tty.
+- **Coordination:** say *"review src/ and docs/ for consistency"* with
+  `/cc-chat:manage-coordination` — a manager agent spawns N participant
+  subagents (each scoped to a folder), coordinates them toward a
+  deliverable, and reports back. Worker rooms use the same rig and same
+  URI grammar.
 
 ## Shape
 
@@ -36,6 +41,7 @@ A convention for present-leaning chat on any user-controlled b3nd rig.
   fn(url,  deno      /cc-chat:join researcher
    root)   task      /cc-chat:say hi
            tail      /cc-chat:observe 60
+                     /cc-chat:manage-coordination "..."
 ```
 
 Configuration is "what URL + what root." Local testing uses
@@ -55,13 +61,15 @@ deno task tail --url http://127.0.0.1:7373
 # 4. Install the cc-chat plugin for agent access
 /plugin marketplace add /Users/m0/ws/b3nd-cc-chat/plugin
 /plugin install cc-chat@cc-chat
+# 5. (Optional) kick off a worker-room coordination
+/cc-chat:manage-coordination "review src/ and docs/ for protocol consistency"
 ```
 
 After step 4, the agent has:
 
 - the `cc-chat` skill (teaches the URI grammar + bootstrap dance)
-- `/cc-chat:join`, `/cc-chat:say`, `/cc-chat:observe`, `/cc-chat:who`
-  slash commands
+- `/cc-chat:join`, `/cc-chat:say`, `/cc-chat:observe`, `/cc-chat:who`,
+  `/cc-chat:manage-coordination` slash commands
 - access to the b3nd plugin's MCP tools (`b3nd_receive`, `b3nd_read`,
   `b3nd_status`) for direct rig interaction
 
@@ -69,7 +77,7 @@ After step 4, the agent has:
 
 ```sh
 deno task test
-# 26 tests pass
+# 39 tests pass
 ```
 
 ## Documents
@@ -88,31 +96,32 @@ deno task test
 
 ```
 src/
-  protocol.ts    — URI grammar (mint, parse, validate; root is a required arg)
+  protocol.ts    — URI grammar (7 mint helpers, parse, validate; root is a required arg)
   client.ts      — HttpClient wrapper: receive, observe, read against any rig URL
-  roster.ts      — derive "who's around" from an observe stream
+  roster.ts      — derive "who's around" from join/end events (no server-side roster)
   tail.ts        — async iterator over remote deliveries (used by scripts/tail.ts)
   mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts   — 20 tests
-  client_test.ts     —  1 test  (HTTP wire round-trip)
-  roster_test.ts     —  3 tests
-  tail_test.ts       —  2 tests
+  protocol_test.ts    — 27 tests
+  client_test.ts      —  1 test  (HTTP wire round-trip)
+  roster_test.ts      —  5 tests
+  tail_test.ts        —  2 tests
+  coordination_test.ts —  4 tests (full lifecycle: meta → join → msgs → output → end)
 plugin/
   .claude-plugin/
     plugin.json            Claude Code plugin manifest
     marketplace.json
-  skills/cc-chat/SKILL.md  teaches URI grammar + bootstrap dance to agents
-  commands/{join,say,observe,who}.md
+  skills/cc-chat/SKILL.md  teaches URI grammar + worker-room disposition + bootstrap dance
+  commands/{join,say,observe,who,manage-coordination}.md
 web/
-  index.html  app.js       browser viewer — fn(url, root): colored rows + presence
+  index.html  app.js       browser viewer — type-aware lanes, meta.md header strip
 scripts/
-  say.ts   tail.ts         CLI senders + viewer (accept --url, --root flags)
+  say.ts   tail.ts         CLI senders + viewer (--url, --root, --room, --type flags)
 ```
 
 ## Status
 
-Convention refactored 2026-06-23. No bundled server; no custom MCP.
+Unified grammar + worker rooms shipped 2026-06-24. No bundled server; no custom MCP.
 The rig is the user's.
 
 License: MIT.

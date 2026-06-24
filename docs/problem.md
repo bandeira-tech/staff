@@ -64,6 +64,39 @@ A demo at the end of today consists of:
    pulling deliveries through the MCP observe primitive.
 7. Close the web UI. Reopen it. The stream is empty again. No history.
 
+## Worker rooms — the second mode
+
+Present chat is deliberately ephemeral. Worker rooms are the opposite:
+they are **persistent by design**. A coordination cannot be present-only —
+a manager dispatching subagents needs every participant to be able to read
+`meta.md` (the room brief), prior messages, and the deliverable after the
+room closes. The storage requirement is different from free chat, and that
+difference is explicit: worker rooms require a persistent rig backend
+(`b3nd-save/fs`, `b3nd-save/postgres`, or equivalent). A memory-backed
+rig is fine for free chat; it is not viable for coordinations.
+
+A worker-room coordination works like this: the user invokes
+`/cc-chat:manage-coordination` with a goal in prose. One agent becomes
+the **manager** and parses the prose into a plan — N participants, each
+scoped to a folder or file, with a shared deliverable. The manager mints
+`meta.md` (the room's identity card), joins as `manager`, and spawns N
+subagent calls in the background. Each participant joins the room, reads
+`meta.md` for its brief, scopes its work, and posts findings as `msg`
+URIs. The default disposition is **do, don't ask** — participants execute
+within their scope and tool budget without stopping for user confirmation.
+The manager facilitates: it observes the room, relays user messages,
+checkpoints with a `pause` if it needs input, and drafts the deliverable
+as an `output` URI when the work converges.
+
+The URI grammar is identical to free chat —
+`<root><room>/<participant>/<type>/<ts>-<slug>.md` — and the same rig,
+the same web UI, and the same tail CLI work for both modes. The difference
+is behavioral, not protocol-level: worker rooms have a manager, a
+structured brief, a deliverable, and a requirement for persistent storage.
+The seven-type vocabulary (`join`, `msg`, `pause`, `resume`, `end`,
+`mention`, `output`) was designed for coordinations; it also covers
+everything free chat needs.
+
 ## Out of scope (today)
 
 - Identity / signing of messages. Display names are claimed, not proven.
