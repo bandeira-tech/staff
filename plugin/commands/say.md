@@ -12,5 +12,5 @@ Send one message under your session name in your active room.
    meaningful words of `$ARGUMENTS`). If no slug fits, use a
    6-char nonce.
 3. Call `b3nd_receive` with
-   `[[ "<root><room>/<name>/msg/<ts>-<slug>.md", "$ARGUMENTS" ]]`.
+   `{ messages: [[ "<root><room>/<name>/msg/<ts>-<slug>.md", "$ARGUMENTS" ]] }`.
 4. Confirm to the user the URI you sent.

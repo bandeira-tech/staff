@@ -16,7 +16,7 @@ Approach:
 4. Fetch payloads in a single `b3nd_read` call at the end of the window
    (or as URIs arrive — your call).
 5. Unsubscribe if you opened it just for this call.
-6. Group deliveries by type segment (the fourth path component after `<root><room>/`):
+6. Group deliveries by type segment — the `<type>` segment immediately after `<name>/` in `<root><room>/<name>/<type>/<leaf>`:
    - `join` — participant joined
    - `end` — participant left
    - `msg` — message
