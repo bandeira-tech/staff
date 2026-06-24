@@ -122,8 +122,12 @@ unless the user already chose one earlier.
 3. **Confirm via `AskUserQuestion`**: `["Looks good, scaffold it",
    "Change the URI root", "Change the fs root", "Cancel"]`.
 4. Scaffold a tiny `bnd` rig file at `~/.bnd/rig.ts` (or local
-   `./b3nd.rig.ts`) that mounts an `FsStore(mountPrefix: "immutable://open/cc-chat/")`
-   pointing at the agreed fs root. Show the snippet first.
+   `./b3nd.rig.ts`) that constructs an `FsStore` pointing at the agreed fs
+   root and registers it with the rig as a `connection(saveClient,
+   ["immutable://open/cc-chat/**"])` across the `receive`, `read`, and
+   `observe` routes. The rig derives `status().resources` from those
+   connection patterns — the store itself never reports a mount prefix.
+   Show the snippet first.
 5. Start: `bnd node --http :7373` (or `--mcp` for in-session agent access).
 
 ### Hand-roll branch: memory / other backend
