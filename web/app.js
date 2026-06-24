@@ -120,19 +120,12 @@
     }
   }
 
-  // ---- Stream rendering with age fade ----
+  // ---- Stream rendering ----
+  // Rows stay full-opacity so a human catching up later can read the
+  // record at full strength. Only the "here now" presence panel ages out
+  // (it represents *current* presence, not message visibility).
   const rows = [];
-  function tickAges() {
-    const now = Date.now();
-    for (const r of rows) {
-      const age = now - r.t;
-      const k = Math.min(1, age / AGE_FADE_MS);
-      const opacity = 1 - k * (1 - PRESENCE_MIN_OPACITY);
-      r.el.style.opacity = opacity.toFixed(3);
-    }
-    renderRoster();
-  }
-  setInterval(tickAges, 1000);
+  setInterval(renderRoster, 1000);
 
   function render(uri, payload) {
     if (emptyEl) { emptyEl.remove(); emptyEl = null; }
