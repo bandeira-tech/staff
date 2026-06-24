@@ -64,11 +64,52 @@
   #presence li .nm{font-weight:600}
   #presence li .ago{color:var(--muted);font-size:10.5px;margin-left:auto}
   #presence .empty-roster{color:var(--muted);font-style:italic;font-size:11px}
+  /* meta strip */
+  #meta-strip{
+    padding:8px 20px;border-bottom:1px solid #1a1f1d;
+    font-family:var(--mono);font-size:12px;
+    display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    background:#080d0b;
+  }
+  #meta-strip.hidden{display:none}
+  #meta-strip .meta-room{color:var(--muted);letter-spacing:.04em}
+  #meta-strip .meta-goal{color:var(--ink);font-weight:600}
+  #meta-strip .meta-kv{color:var(--muted)}
+  #meta-strip .meta-key{color:var(--accent);margin-right:4px}
+  /* stream rows */
   .row{display:flex;gap:10px;align-items:baseline}
   .row .t{color:var(--muted);font-size:11px;min-width:64px}
   .row .who{font-weight:600;min-width:120px}
   .row .body{color:var(--ink);word-break:break-word}
-  .row.presence .body{color:var(--muted);font-style:italic}
+  /* status rows: join / end */
+  .row.status .who{min-width:auto}
+  .row.status .status-text{color:var(--muted);font-style:italic}
+  /* mention badge */
+  .row.mention .mention-badge{
+    font-weight:700;font-size:11px;padding:1px 5px;
+    border-radius:3px;background:#1a1f1d;margin:0 4px;
+  }
+  /* banners: pause / resume */
+  .row.banner{
+    padding:6px 10px;border-radius:4px;margin:4px 0;
+    align-items:center;gap:12px;
+  }
+  .row.pause-banner{background:#1f1209;border-left:3px solid var(--pink)}
+  .row.pause-banner .banner-label{color:var(--pink);font-weight:700}
+  .row.pause-banner .banner-reason{color:var(--muted)}
+  .row.resume-banner{background:#091a0e;border-left:3px solid var(--accent)}
+  .row.resume-banner .banner-label{color:var(--accent);font-weight:700}
+  /* output card */
+  .row.output-card{
+    padding:8px 12px;border-radius:4px;margin:6px 0;
+    background:#101a12;border:1px solid var(--accent);
+    display:flex;flex-direction:column;gap:4px;
+  }
+  .row.output-card .output-label{
+    color:var(--accent);font-weight:700;font-size:11px;
+    text-transform:uppercase;letter-spacing:.1em;
+  }
+  .row.output-card .output-body{color:var(--ink);white-space:pre-wrap;word-break:break-word}
   .empty{color:var(--muted);font-style:italic;padding:60px 0;text-align:center}
   .empty small{display:block;margin-top:6px;font-size:11px}
   footer{
@@ -96,6 +137,7 @@
   <span id="status" class="status down">connecting…</span>
   <button id="cfg-toggle" class="cfg-toggle" title="settings">⚙</button>
 </header>
+<div id="meta-strip" class="hidden"></div>
 <section id="settings" class="settings hidden">
   <label>
     <span>target rig URL</span>
@@ -104,6 +146,10 @@
   <label>
     <span>root path</span>
     <input id="cfg-root" type="text" placeholder="immutable://open/cc-chat/" autocomplete="off">
+  </label>
+  <label>
+    <span>room (optional)</span>
+    <input id="cfg-room" type="text" placeholder="20240101120000-my-room" autocomplete="off" style="min-width:200px">
   </label>
   <button id="cfg-apply">apply</button>
   <button id="cfg-cancel" class="muted">cancel</button>
@@ -121,7 +167,7 @@
     </ul>
   </aside>
 </main>
-<footer>POST <code>&lt;root&gt;stream/{name}</code> or <code>&lt;root&gt;presence/{name}</code> to <code>/api/v1/receive</code></footer>
+<footer>POST <code>&lt;root&gt;&lt;room&gt;/&lt;who&gt;/&lt;type&gt;/&lt;ts&gt;-&lt;slug&gt;.md</code> to <code>/api/v1/receive</code> · types: join msg mention pause resume end output</footer>
 <script src="/app.js"></script>
 </body>
 </html>
