@@ -1427,7 +1427,32 @@ git commit -m "Smoke: fixes from end-to-end run"
 
 (Filled in during Task 0. Subsequent tasks read this section.)
 
-- observe multi-pattern: TBD
-- MCP subscribe multi-pattern: TBD
-- plugin-settings frontmatter shape: TBD
-- persistence under `immutable://open/cc-chat/`: TBD
+- observe multi-pattern: **YES** — `HttpClient.observe(urls: string[], signal)` in
+  `/Users/m0/ws/b3nd-move/src/http/client.ts:269` takes `string[]`. The existing
+  `client.ts` already passes `[pattern]`; participants can subscribe to a list of globs
+  (e.g. `["<root><room>/*/msg/**", "<root><room>/manager/pause/**"]`) in a single call.
+  Verified from local sibling repo source (deno doc JSON was not used).
+
+- MCP subscribe multi-pattern: **NO** — `resources/subscribe` in
+  `/Users/m0/ws/b3nd-move/src/mcp/service.ts:201` accepts exactly one `{ uri }` per
+  call. To subscribe to multiple patterns via MCP, callers must issue multiple
+  `resources/subscribe` calls. For cc-chat plugin commands the simpler approach is to
+  subscribe to `<root><room>/**` (one call) and filter client-side.
+
+- plugin-settings frontmatter shape: Free-form YAML key:value — no enforced schema
+  beyond the `.claude/plugin-name.local.md` file location convention. Verified from
+  `/Users/m0/.claude/plugins/cache/claude-plugins-official/plugin-dev/27d2b86d72da/skills/plugin-settings/SKILL.md`.
+  Minimal cc-chat shape:
+  ```yaml
+  ---
+  participant-tool-budget: read-only-chat   # read-only-chat | full-this-run | full-always
+  ---
+  ```
+
+- persistence under `immutable://open/cc-chat/`: **ASSUMED** — `immutable://` is the
+  rig's append-only scheme; `docs/bootstrap.md:46` states "append-only — best for chat"
+  and shows fs-backed storage mapping `immutable://open/cc-chat/` to a local directory.
+  The rig is running healthy at `http://127.0.0.1:7373` but no live write-wait-read test
+  was performed (no >60s wait in a pre-flight task). Downstream tasks should treat
+  persistence as an assumption justified by the scheme name and the README, not a
+  live-verified fact.
