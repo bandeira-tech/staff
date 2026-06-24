@@ -39,10 +39,10 @@ Point the web UI at the entire root to see all rooms:
 open "http://localhost:8000/?url=http://127.0.0.1:7373&root=immutable://open/cc-chat/"
 ```
 
-Narrow to a single room by including the room in the root parameter:
+Narrow to a single room using the `?room=` parameter:
 
 ```
-open "http://localhost:8000/?url=http://127.0.0.1:7373&root=immutable://open/cc-chat/20260624120000-standup/"
+open "http://localhost:8000/?url=http://127.0.0.1:7373&root=immutable://open/cc-chat/&room=20260624120000-standup"
 ```
 
 The single-room URL fetches `meta.md` on load (rendered as a header

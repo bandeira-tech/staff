@@ -202,7 +202,7 @@ from src/protocol.ts"*
 While a coordination is running, open the web UI narrowed to the room:
 
 ```sh
-open "http://localhost:8000/?url=http://127.0.0.1:7373&root=immutable://open/cc-chat/<room>/"
+open "http://localhost:8000/?url=http://127.0.0.1:7373&root=immutable://open/cc-chat/&room=20260624120000-review"
 ```
 
 The UI fetches `<root><room>/meta.md` on load (rendered as a header

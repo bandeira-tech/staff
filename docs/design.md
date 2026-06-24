@@ -42,11 +42,11 @@ src/
   tail.ts        — async iterator over remote deliveries
   mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts    — URI builders / parsers / validators (27 tests)
+  protocol_test.ts    — URI builders / parsers / validators (28 tests)
   client_test.ts      — HTTP wire round-trip (1 test)
-  roster_test.ts      — roster derivation from join/end events (5 tests)
-  tail_test.ts        — tail iterator (2 tests)
-  coordination_test.ts — full coordination lifecycle (4 tests): meta →
+  roster_test.ts      — roster derivation from join/end events (3 tests)
+  tail_test.ts        — tail iterator (6 tests)
+  coordination_test.ts — full coordination lifecycle (1 test): meta →
                          join → msgs → pause/resume → output → end
 web/
   index.html     — static UI shell; reads ?url= and ?root= from query string
@@ -182,12 +182,12 @@ per-call directly from `manage-coordination.md`. The manager:
 
 ## What today's tests cover
 
-- `protocol_test.ts` — URI builders / parsers / validators (27 tests).
+- `protocol_test.ts` — URI builders / parsers / validators (28 tests).
 - `client_test.ts` — receive→observe fanout over the HTTP wire (1 test).
-- `roster_test.ts` — roster derivation from join/end events (5 tests).
-- `tail_test.ts` — terminal tail iterator (2 tests).
+- `roster_test.ts` — roster derivation from join/end events (3 tests).
+- `tail_test.ts` — terminal tail iterator (6 tests).
 - `coordination_test.ts` — full lifecycle with fake rig + fake manager +
-  2 fake participants (4 tests).
+  2 fake participants (1 test).
 
 Total: 39 tests.
 

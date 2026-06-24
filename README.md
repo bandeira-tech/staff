@@ -102,11 +102,11 @@ src/
   tail.ts        — async iterator over remote deliveries (used by scripts/tail.ts)
   mod.ts         — re-exports protocol + client + roster
 tests/
-  protocol_test.ts    — 27 tests
+  protocol_test.ts    — 28 tests
   client_test.ts      —  1 test  (HTTP wire round-trip)
-  roster_test.ts      —  5 tests
-  tail_test.ts        —  2 tests
-  coordination_test.ts —  4 tests (full lifecycle: meta → join → msgs → output → end)
+  roster_test.ts      —  3 tests
+  tail_test.ts        —  6 tests
+  coordination_test.ts —  1 test (full lifecycle: meta → join → msgs → output → end)
 plugin/
   .claude-plugin/
     plugin.json            Claude Code plugin manifest
