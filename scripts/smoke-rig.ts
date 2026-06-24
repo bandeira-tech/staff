@@ -13,8 +13,7 @@
 /// <reference lib="deno.ns" />
 
 import { ensureDir } from "jsr:@std/fs@^1/ensure-dir";
-import { walk } from "jsr:@std/fs@^1/walk";
-import { dirname, relative } from "jsr:@std/path@^1";
+import { dirname } from "jsr:@std/path@^1/dirname";
 
 // Sibling-repo imports via absolute paths.
 // Use specific subpath imports to avoid pulling in the encrypt/identity
@@ -164,39 +163,6 @@ async function serveStatic(req: Request): Promise<Response> {
   }
 }
 
-// Side-car endpoint: enumerate all URIs persisted for a room. Lets the UI
-// replay history for finished rooms (the b3nd HTTP wire has no list verb;
-// here we walk the FS directly using knowledge of `uriToRelPath`'s
-// `://` ↔ `_` rewrite and the `.md.bin` suffix). Smoke-rig only.
-const ROOT_PREFIX = "immutable://open/cc-chat/";
-const DATA_EXT = ".md.bin";
-async function listHistory(room: string): Promise<string[]> {
-  if (!/^[0-9]{14}-[a-z0-9][a-z0-9-]{0,47}$/.test(room)) return [];
-  const baseRel = ROOT_PREFIX.replace("://", "_") + room;
-  const baseAbs = `${ROOT_DIR}/${baseRel}`;
-  const uris: string[] = [];
-  try {
-    for await (const entry of walk(baseAbs, { includeDirs: false })) {
-      if (!entry.path.endsWith(DATA_EXT)) continue;
-      const rel = relative(ROOT_DIR, entry.path);
-      const withoutExt = rel.slice(0, -DATA_EXT.length);
-      uris.push(withoutExt.replace("_", "://") + ".md");
-    }
-  } catch {
-    // missing room dir → empty
-  }
-  return uris;
-}
-
-async function serveSmokeList(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const room = url.searchParams.get("room") ?? "";
-  const uris = await listHistory(room);
-  return new Response(JSON.stringify({ uris }), {
-    headers: { "content-type": "application/json" },
-  });
-}
-
 console.log(`[smoke-rig] FsStore root:  ${ROOT_DIR}`);
 console.log(`[smoke-rig] Web UI root:   ${WEB_DIR}`);
 console.log("[smoke-rig] Listening on  http://127.0.0.1:7373");
@@ -205,7 +171,6 @@ Deno.serve(
   { port: 7373, hostname: "127.0.0.1" },
   (req, info) => {
     const url = new URL(req.url);
-    if (url.pathname === "/api/_smoke/list") return serveSmokeList(req);
     if (url.pathname.startsWith("/api/")) return (apiHandler as (r: Request, i?: unknown) => Response | Promise<Response>)(req, info);
     return serveStatic(req);
   },

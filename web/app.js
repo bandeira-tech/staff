@@ -311,22 +311,23 @@
   }
 
   async function fetchMeta(room) {
-    if (!room || !metaStripEl) return;
+    if (!room || !metaStripEl) return null;
     const metaUri = `${rootPath}${room}/meta.md`;
     try {
       const u = encodeUrlList([metaUri]);
       const res = await fetch(`${targetRemote}/api/v1/read?u=${u}`, { method: "POST" });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const outs = decodeOutputsFrame(new Uint8Array(await res.arrayBuffer()));
       const pair = outs.find(([uri]) => uri === metaUri);
-      if (!pair) return;
+      if (!pair) return null;
       const [, content] = pair;
-      if (typeof content !== "string" || !content) return;
+      if (typeof content !== "string" || !content) return null;
       const fm = parseFrontmatter(content);
       const body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
       renderMetaStrip(room, fm, body);
+      return fm;
     } catch {
-      // 404 or parse error — skip silently
+      return null; // 404 or parse error — skip silently
     }
   }
 
@@ -356,35 +357,67 @@
   }
 
   // ---- History replay ----
-  // Pulls the smoke-rig's side-car URI list for the room, batches a `read`
-  // for the payloads, sorts by the ts segment embedded in each leaf, and
-  // hands each one to `render` — the same path live messages take, so the
-  // visual treatment per type stays identical.
-  async function loadHistory(room) {
+  // PIN-only — no side-car endpoints. We use the participants listed in
+  // meta.md (the protocol's canonical roster) to enumerate the leaf URIs
+  // via `read("<root><room>/<who>/<type>/?fn=ls&format=uris")`, then a
+  // second `read` to fetch payloads. Each record then flows through the
+  // same render() path live messages take, so per-type design is preserved.
+  //
+  // The wire has no recursive listing verb; this approach trades that for
+  // a fan-out of ls calls bounded by `participants × types`. Participants
+  // not declared in meta will not appear in the replay.
+  const NON_MENTION_TYPES = ["join", "msg", "pause", "resume", "end", "output"];
+  const NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+  function participantsFromMeta(fm) {
+    const raw = fm && fm.participants ? String(fm.participants) : "";
+    return raw.split(/[,\s]+/).map((s) => s.trim()).filter((s) => NAME_RE.test(s));
+  }
+
+  async function loadHistory(room, fm) {
     if (!room) return;
-    let uris;
-    try {
-      const res = await fetch(`${targetRemote}/api/_smoke/list?room=${encodeURIComponent(room)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      uris = Array.isArray(data.uris) ? data.uris : [];
-    } catch {
-      return; // endpoint missing on non-smoke rigs
+    const participants = participantsFromMeta(fm);
+    if (participants.length === 0) return;
+
+    const lsUris = [];
+    for (const who of participants) {
+      for (const type of NON_MENTION_TYPES) {
+        lsUris.push(`${rootPath}${room}/${who}/${type}/?fn=ls&format=uris`);
+      }
+      for (const target of participants) {
+        if (target === who) continue;
+        lsUris.push(`${rootPath}${room}/${who}/mention/${target}/?fn=ls&format=uris`);
+      }
     }
-    if (uris.length === 0) return;
+
+    const leaves = [];
+    for (let i = 0; i < lsUris.length; i += 50) {
+      let outs;
+      try {
+        outs = await readBatch(lsUris.slice(i, i + 50));
+      } catch {
+        continue;
+      }
+      for (const [, payload] of outs) {
+        if (!Array.isArray(payload)) continue;
+        for (const u of payload) {
+          if (typeof u === "string") leaves.push(u);
+        }
+      }
+    }
+    if (leaves.length === 0) return;
 
     const items = [];
-    for (const uri of uris) {
+    for (const uri of leaves) {
       const p = parseUri(rootPath, uri);
       if (!p || p.type === "meta") continue;
       items.push({ uri, ts: p.ts ?? "" });
     }
     items.sort((a, b) => a.ts.localeCompare(b.ts) || a.uri.localeCompare(b.uri));
 
-    const CHUNK = 50;
     let inserted = false;
-    for (let i = 0; i < items.length; i += CHUNK) {
-      const slice = items.slice(i, i + CHUNK).map((x) => x.uri);
+    for (let i = 0; i < items.length; i += 50) {
+      const slice = items.slice(i, i + 50).map((x) => x.uri);
       try {
         const outs = await readBatch(slice);
         for (const [uri, payload] of outs) {
@@ -605,12 +638,11 @@
     window.location.assign(u.toString());
   });
 
-  // Kick off meta fetch and history replay in parallel with the live stream.
-  // History runs first so its records land before observe emits new ones,
-  // but the dedupe set guarantees correctness regardless of arrival order.
+  // Fetch meta first — its frontmatter carries the participants list that
+  // history replay needs. Live observe runs in parallel; the dedupe set
+  // keeps replay and live in sync regardless of arrival order.
   if (currentRoom) {
-    fetchMeta(currentRoom);
-    loadHistory(currentRoom);
+    fetchMeta(currentRoom).then((fm) => loadHistory(currentRoom, fm));
   }
   observeForever();
 })();
