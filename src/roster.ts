@@ -1,9 +1,9 @@
 /**
  * @module
  * Client-side roster + warm/cold fade. Pure functions: no rig, no IO.
- * Takes the operator-chosen root explicitly — there is no protocol-level
- * default scheme.
+ * Derived from join (presence in) and end (presence out) URI types.
  */
+import { parseUri } from "./protocol.ts";
 
 export interface ObservedDelivery {
   uri: string;
@@ -11,33 +11,33 @@ export interface ObservedDelivery {
 }
 
 export interface Roster {
-  names: string[];
-  speaking: string[];
-  presence: string[];
-}
-
-function rosterRegex(root: string): RegExp {
-  if (!root.endsWith("/")) throw new Error(`root must end with '/', got: ${root}`);
-  const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped}(stream|presence)\\/([a-z0-9][a-z0-9-]{0,31})\\/`);
+  names: string[];   // union of ever-seen participants
+  joined: string[];  // currently in the room (join minus end)
+  spoken: string[];  // ever posted a msg
 }
 
 export function rosterFromObserved(
   root: string,
   deliveries: ObservedDelivery[],
 ): Roster {
-  const re = rosterRegex(root);
-  const speakingSet = new Set<string>();
-  const presenceSet = new Set<string>();
+  const everSeen = new Set<string>();
+  const ins = new Set<string>();
+  const outs = new Set<string>();
+  const spoken = new Set<string>();
   for (const { uri } of deliveries) {
-    const m = re.exec(uri);
-    if (!m) continue;
-    const [, channel, name] = m;
-    if (channel === "stream") speakingSet.add(name);
-    else if (channel === "presence") presenceSet.add(name);
+    const p = parseUri(root, uri);
+    if (!p || p.type === "meta") continue;
+    everSeen.add(p.who);
+    if (p.type === "join") ins.add(p.who);
+    else if (p.type === "end") outs.add(p.who);
+    else if (p.type === "msg") spoken.add(p.who);
   }
-  const names = [...new Set([...speakingSet, ...presenceSet])].sort();
-  return { names, speaking: [...speakingSet].sort(), presence: [...presenceSet].sort() };
+  const joined = [...ins].filter((n) => !outs.has(n)).sort();
+  return {
+    names: [...everSeen].sort(),
+    joined,
+    spoken: [...spoken].sort(),
+  };
 }
 
 export interface GradientStop {
@@ -48,11 +48,6 @@ export interface GradientStop {
 
 const FLOOR = 0.18;
 
-/**
- * Map name → last-seen-ms to an array of `{name, age, opacity}` sorted by
- * name. Anything older than `windowMs` is dropped. Opacity decays linearly
- * from 1 to `FLOOR` over the window.
- */
 export function gradientStops(
   lastSeen: Map<string, number>,
   now: number,
@@ -61,7 +56,7 @@ export function gradientStops(
   const out: GradientStop[] = [];
   for (const [name, ts] of lastSeen) {
     const age = now - ts;
-    if (age >= windowMs) continue;
+    if (age > windowMs) continue;
     const k = Math.min(1, age / windowMs);
     const opacity = 1 - k * (1 - FLOOR);
     out.push({ name, age, opacity });
