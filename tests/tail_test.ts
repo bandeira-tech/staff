@@ -10,7 +10,7 @@ import { assertEquals } from "@std/assert";
 import { observeStreamFromRig } from "../src/client.ts";
 import { ObserveEmitter } from "@bandeira-tech/b3nd-core";
 import { msgUri, joinUri, parseUri } from "../src/protocol.ts";
-import { roomPattern } from "../src/tail.ts";
+import { roomPattern, enrichDelivery } from "../src/tail.ts";
 
 const ROOT = "immutable://open/cc-chat/";
 const ROOM = "20260623120000-test";
@@ -107,4 +107,22 @@ Deno.test("roomPattern builds <root><room>/**", () => {
     roomPattern("immutable://open/cc-chat/", "20260624120000-r"),
     "immutable://open/cc-chat/20260624120000-r/**",
   );
+});
+
+Deno.test("enrichDelivery parses a msg URI", () => {
+  const root = ROOT;
+  const uri = msgUri(root, ROOM, "alice", "test-msg");
+  const delivery = enrichDelivery(root, { uri, payload: "hello" });
+  assertEquals(delivery.uri, uri);
+  assertEquals(delivery.payload, "hello");
+  assertEquals(delivery.parsed?.type, "msg");
+});
+
+Deno.test("enrichDelivery returns null for unparseable URI", () => {
+  const root = ROOT;
+  const unparseable = "https://invalid/not/a/valid/uri";
+  const delivery = enrichDelivery(root, { uri: unparseable, payload: null });
+  assertEquals(delivery.uri, unparseable);
+  assertEquals(delivery.payload, null);
+  assertEquals(delivery.parsed, null);
 });

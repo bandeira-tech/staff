@@ -26,10 +26,14 @@ export function roomPattern(root: string, room: string): string {
   return `${root}${room}/**`;
 }
 
+export function enrichDelivery(root: string, d: { uri: string; payload: string | null }): TailDelivery {
+  return { uri: d.uri, payload: d.payload, parsed: parseUri(root, d.uri) };
+}
+
 export async function* tail(opts: TailOptions): AsyncIterable<TailDelivery> {
   const client = ccChatClient({ url: opts.url, root: opts.root });
   const pattern = opts.pattern ?? `${client.root}**`;
   for await (const d of client.observeStream(pattern, opts.signal)) {
-    yield { uri: d.uri, payload: d.payload, parsed: parseUri(client.root, d.uri) };
+    yield enrichDelivery(client.root, d);
   }
 }
