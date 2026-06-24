@@ -98,6 +98,26 @@ resources/subscribe("<root><room>/**")
 
 All event types arrive on this single subscription. Filter client-side when handling deliveries (see filtering logic in Step 6).
 
+**Always open the web UI on the room** so the user can watch the coordination
+live. Per CLAUDE.md ("when output is a viewable URL, also run `open` on it"),
+mint the URL and shell out to `open`:
+
+```
+open "<ui-base>/?url=<rig-url>&root=<root>&room=<room>"
+```
+
+For the hand-rolled FS smoke rig (which now serves `web/` at the same origin
+as the API), this is simply:
+
+```
+open "http://127.0.0.1:7373/?root=<root>&room=<room>"
+```
+
+When the rig URL differs from the UI host (e.g. a remote rig), include `url=`
+explicitly. The UI persists this config in `localStorage` so a refresh keeps
+the user pointed at the same room. Do this before dispatching participants
+(Step 5) — the user sees presence build up live as joins land.
+
 ### Step 5 — Spawn participants
 
 All participant dispatches go in **one tool message**, each Agent call with `run_in_background: true`, so participants run concurrently. Per-call prompt is assembled from the inlined participant template below, with the identity/scope/role/tool-budget block interpolated at the top.

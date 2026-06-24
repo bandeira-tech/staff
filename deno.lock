@@ -2,7 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@bandeira-tech/b3nd-core@0.22": "0.22.0",
-    "jsr:@bandeira-tech/b3nd-move@0.18": "0.18.2",
+    "jsr:@bandeira-tech/b3nd-move@0.19": "0.19.0",
     "jsr:@std/assert@^1.0.15": "1.0.19",
     "jsr:@std/fs@1": "1.0.24",
     "jsr:@std/internal@^1.0.12": "1.0.14",
@@ -16,8 +16,8 @@
     "@bandeira-tech/b3nd-core@0.22.0": {
       "integrity": "a50b5f2524a358459b665bd244494a6c38f15baf456936c2ded47cdf668d3909"
     },
-    "@bandeira-tech/b3nd-move@0.18.2": {
-      "integrity": "60677deb989d550db519c64c377ea08436d382b1bfdb1fd6ddb1e459ff646465",
+    "@bandeira-tech/b3nd-move@0.19.0": {
+      "integrity": "49b09d92ccbc40fba378278d30033afdea602f0c3a03f8a094b30bafc579004d",
       "dependencies": [
         "jsr:@bandeira-tech/b3nd-core"
       ]
@@ -565,7 +565,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@bandeira-tech/b3nd-move@0.18",
+      "jsr:@bandeira-tech/b3nd-move@0.19",
       "jsr:@std/assert@^1.0.15",
       "npm:canonicalize@2.0.0"
     ]

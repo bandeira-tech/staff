@@ -2,10 +2,16 @@
  * cc-chat web UI — talks the b3nd-move HTTP wire directly.
  *
  * Wire: POST /api/v1/observe?u=<b64>  → NDJSON of string[] batches
- *       POST /api/v1/read?u=<b64>     → JSON Output[]
+ *       POST /api/v1/read?u=<b64>     → outputs-frame bytes (Output[])
  *
  * `u=` is a url-list: UTF-8 bytes for each URL framed by a 2-byte BE
  * length prefix per slot, base64-url-unpadded over the concatenation.
+ *
+ * Read response is application/octet-stream packed by the outputs-frame
+ * codec (b3nd-move/src/codecs/outputs-frame.ts):
+ *   slot = <u8 flag><u16 uri-len BE><uri utf8><u32 payload-len BE><payload>
+ * flag=1 → raw bytes payload (decoded as UTF-8 for cc-chat text records);
+ * flag=0 → JSON-encoded payload (decoded then parsed).
  *
  * URL params: ?url=<rig>&root=<root>&room=<room>
  *   room: subscribe to <root><room>/** and render a meta.md header strip.
@@ -308,11 +314,11 @@
       const u = encodeUrlList([metaUri]);
       const res = await fetch(`${targetRemote}/api/v1/read?u=${u}`, { method: "POST" });
       if (!res.ok) return;
-      const outs = await res.json();
+      const outs = decodeOutputsFrame(new Uint8Array(await res.arrayBuffer()));
       const pair = outs.find(([uri]) => uri === metaUri);
       if (!pair) return;
       const [, content] = pair;
-      if (!content) return;
+      if (typeof content !== "string" || !content) return;
       const fm = parseFrontmatter(content);
       renderMetaStrip(room, fm);
     } catch {
@@ -344,7 +350,35 @@
     const u = encodeUrlList(uris);
     const res = await fetch(`${targetRemote}/api/v1/read?u=${u}`, { method: "POST" });
     if (!res.ok) return [];
-    return await res.json();
+    return decodeOutputsFrame(new Uint8Array(await res.arrayBuffer()));
+  }
+
+  // ---- outputs-frame decoder (browser-side, matches b3nd-move/codecs) ----
+  // Mirrors b3nd-move/src/codecs/outputs-frame.ts. flag=1 raw bytes are
+  // decoded as UTF-8 (all cc-chat payloads are text); flag=0 is JSON-decoded
+  // and parsed. Returns [uri, payload][] where payload is string | unknown | null.
+  function decodeOutputsFrame(buf) {
+    const td = new TextDecoder("utf-8", { fatal: true });
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const outs = [];
+    let off = 0;
+    while (off < buf.length) {
+      const flag = buf[off]; off += 1;
+      const uriLen = view.getUint16(off, false); off += 2;
+      const uri = td.decode(buf.subarray(off, off + uriLen)); off += uriLen;
+      const payloadLen = view.getUint32(off, false); off += 4;
+      const payloadBytes = buf.subarray(off, off + payloadLen); off += payloadLen;
+      let payload;
+      if (payloadLen === 0) {
+        payload = flag === 1 ? "" : null;
+      } else if (flag === 1) {
+        payload = td.decode(payloadBytes);
+      } else {
+        try { payload = JSON.parse(td.decode(payloadBytes)); } catch { payload = null; }
+      }
+      outs.push([uri, payload]);
+    }
+    return outs;
   }
 
   async function observeForever() {

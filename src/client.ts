@@ -70,7 +70,7 @@ export function ccChatClient(opts: CcChatClientOpts): CcChatClient {
       const outs = await http.read([...uris]);
       return outs.map(([uri, payload]) => ({
         uri,
-        payload: typeof payload === "string" ? payload : (payload == null ? null : String(payload)),
+        payload: decodePayload(payload),
       }));
     },
     observeStream(pattern, signal) {
@@ -88,10 +88,19 @@ async function* observeStreamFromHttp(
     if (batch.length === 0) continue;
     const reads = await http.read([...batch]);
     for (const [uri, payload] of reads) {
-      const p = typeof payload === "string" ? payload : (payload == null ? null : String(payload));
-      yield { uri, payload: p };
+      yield { uri, payload: decodePayload(payload) };
     }
   }
+}
+
+// HttpClient.read (b3nd-move ≥0.19) returns `Uint8Array` for flag=1 raw-bytes
+// slots and JSON-decoded values for flag=0. cc-chat payloads are UTF-8 text
+// minted via TextEncoder, so the bytes branch is decoded as a string here.
+function decodePayload(payload: unknown): string | null {
+  if (payload == null) return null;
+  if (typeof payload === "string") return payload;
+  if (payload instanceof Uint8Array) return new TextDecoder().decode(payload);
+  return String(payload);
 }
 
 /**
