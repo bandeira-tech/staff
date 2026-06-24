@@ -181,6 +181,7 @@
 
   // ---- Stream rendering ----
   const rows = [];
+  const renderedUris = new Set();
   setInterval(renderRoster, 1000);
 
   function renderTimestamp() {
@@ -192,6 +193,8 @@
     const parsed = parseUri(rootPath, uri);
     if (!parsed) return;
     if (parsed.type === "meta") return; // meta loaded separately at startup
+    if (renderedUris.has(uri)) return; // dedupe history vs. live
+    renderedUris.add(uri);
 
     if (emptyEl) { emptyEl.remove(); emptyEl = null; }
 
@@ -320,13 +323,14 @@
       const [, content] = pair;
       if (typeof content !== "string" || !content) return;
       const fm = parseFrontmatter(content);
-      renderMetaStrip(room, fm);
+      const body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+      renderMetaStrip(room, fm, body);
     } catch {
       // 404 or parse error — skip silently
     }
   }
 
-  function renderMetaStrip(room, fm) {
+  function renderMetaStrip(room, fm, body) {
     if (!metaStripEl) return;
     metaStripEl.classList.remove("hidden");
     const parts = [];
@@ -339,7 +343,65 @@
       parts.push(`<span class="meta-kv"><span class="meta-key">deliverable</span> ${escHtml(dest)}</span>`);
     }
     const roomLabel = `<span class="meta-room">${escHtml(room)}</span>`;
-    metaStripEl.innerHTML = `${roomLabel}${parts.join("")}`;
+    const detailsHtml = (body && body.trim())
+      ? renderMarkdown(body.trim())
+      : `<em style="color:var(--muted)">no body in meta.md</em>`;
+    metaStripEl.innerHTML =
+      `<div class="meta-summary">${roomLabel}${parts.join("")}` +
+      `<span class="meta-chev">▾</span></div>` +
+      `<div class="meta-details">${detailsHtml}</div>`;
+    metaStripEl.querySelector(".meta-summary").addEventListener("click", () => {
+      metaStripEl.classList.toggle("open");
+    });
+  }
+
+  // ---- History replay ----
+  // Pulls the smoke-rig's side-car URI list for the room, batches a `read`
+  // for the payloads, sorts by the ts segment embedded in each leaf, and
+  // hands each one to `render` — the same path live messages take, so the
+  // visual treatment per type stays identical.
+  async function loadHistory(room) {
+    if (!room) return;
+    let uris;
+    try {
+      const res = await fetch(`${targetRemote}/api/_smoke/list?room=${encodeURIComponent(room)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      uris = Array.isArray(data.uris) ? data.uris : [];
+    } catch {
+      return; // endpoint missing on non-smoke rigs
+    }
+    if (uris.length === 0) return;
+
+    const items = [];
+    for (const uri of uris) {
+      const p = parseUri(rootPath, uri);
+      if (!p || p.type === "meta") continue;
+      items.push({ uri, ts: p.ts ?? "" });
+    }
+    items.sort((a, b) => a.ts.localeCompare(b.ts) || a.uri.localeCompare(b.uri));
+
+    const CHUNK = 50;
+    let inserted = false;
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const slice = items.slice(i, i + CHUNK).map((x) => x.uri);
+      try {
+        const outs = await readBatch(slice);
+        for (const [uri, payload] of outs) {
+          render(uri, payload);
+          inserted = true;
+        }
+      } catch {
+        // partial failure — skip chunk
+      }
+    }
+    if (inserted) {
+      const marker = document.createElement("div");
+      marker.className = "row history-marker";
+      marker.textContent = "— end of history · live below —";
+      streamEl.appendChild(marker);
+      streamEl.scrollTop = streamEl.scrollHeight;
+    }
   }
 
   function escHtml(s) {
@@ -347,36 +409,80 @@
   }
 
   // ---- Minimal markdown renderer for chat messages ----
-  // Handles: fenced code blocks, inline code, bold, italic, links, line breaks.
-  // Escapes HTML first so payload content cannot inject markup.
-  function renderMarkdown(text) {
-    if (!text) return "";
-    const blocks = [];
-    text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-      blocks.push({ lang, code: code.replace(/\n$/, "") });
-      return ` B${blocks.length - 1} `;
-    });
-    const inlines = [];
-    text = text.replace(/`([^`\n]+)`/g, (_, code) => {
-      inlines.push(code);
-      return ` I${inlines.length - 1} `;
-    });
-    text = escHtml(text);
-    text = text.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
-      const safe = /^(https?:|mailto:)/i.test(url);
-      if (!safe) return `[${label}](${escHtml(url)})`;
+  // Block-aware: handles fenced code, ATX headers, bullet lists, plus
+  // inline code/bold/italic/links. HTML is escaped before transforms so
+  // payload content cannot inject markup. Sentinels around extracted
+  // code spans are NUL bytes (\x00) — survive escHtml, never in chat.
+  function _inlineMd(line, inlines) {
+    let s = escHtml(line);
+    s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
+      if (!/^(https?:|mailto:)/i.test(url)) return `[${label}](${escHtml(url)})`;
       return `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     });
-    text = text.replace(/(^|[^*\w])\*\*([^*\n]+)\*\*(?!\*)/g, "$1<strong>$2</strong>");
-    text = text.replace(/(^|[^_\w])__([^_\n]+)__(?!_)/g, "$1<strong>$2</strong>");
-    text = text.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
-    text = text.replace(/(^|[^_\w])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
-    text = text.replace(/ I(\d+) /g, (_, i) => `<code>${escHtml(inlines[+i])}</code>`);
-    text = text.replace(/\n/g, "<br>");
-    text = text.replace(/ B(\d+) /g, (_, i) => {
-      return `<pre><code>${escHtml(blocks[+i].code)}</code></pre>`;
+    s = s.replace(/(^|[^*\w])\*\*([^*\n]+)\*\*(?!\*)/g, "$1<strong>$2</strong>");
+    s = s.replace(/(^|[^_\w])__([^_\n]+)__(?!_)/g, "$1<strong>$2</strong>");
+    s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    s = s.replace(/(^|[^_\w])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
+    s = s.replace(/\x00I(\d+)\x00/g, (_, i) => `<code>${escHtml(inlines[+i])}</code>`);
+    return s;
+  }
+  function _renderBlocks(segment, inlines) {
+    if (!segment) return "";
+    const lines = segment.split(/\r?\n/);
+    const out = [];
+    let listOpen = false;
+    const closeList = () => { if (listOpen) { out.push("</ul>"); listOpen = false; } };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      const isLast = i === lines.length - 1;
+      if (trimmed === "") {
+        closeList();
+        if (!isLast && out.length && !/<br>$|<\/(ul|h[1-6]|pre)>$/.test(out[out.length - 1])) {
+          out.push("<br>");
+        }
+        continue;
+      }
+      const h = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+      if (h) {
+        closeList();
+        const level = Math.min(h[1].length, 6);
+        out.push(`<h${level}>${_inlineMd(h[2], inlines)}</h${level}>`);
+        continue;
+      }
+      const li = /^[-*]\s+(.*)$/.exec(trimmed);
+      if (li) {
+        if (!listOpen) { out.push("<ul>"); listOpen = true; }
+        out.push(`<li>${_inlineMd(li[1], inlines)}</li>`);
+        continue;
+      }
+      closeList();
+      out.push(_inlineMd(line, inlines));
+      if (!isLast && lines[i + 1] !== undefined && lines[i + 1].trim() !== "") {
+        out.push("<br>");
+      }
+    }
+    closeList();
+    return out.join("");
+  }
+  function renderMarkdown(text) {
+    if (!text) return "";
+    const inlines = [];
+    const captured = text.replace(/`([^`\n]+)`/g, (_, code) => {
+      inlines.push(code);
+      return `\x00I${inlines.length - 1}\x00`;
     });
-    return text;
+    const fence = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g;
+    const out = [];
+    let last = 0;
+    let m;
+    while ((m = fence.exec(captured)) !== null) {
+      out.push(_renderBlocks(captured.slice(last, m.index), inlines));
+      out.push(`<pre><code>${escHtml(m[2].replace(/\n$/, ""))}</code></pre>`);
+      last = m.index + m[0].length;
+    }
+    out.push(_renderBlocks(captured.slice(last), inlines));
+    return out.join("");
   }
 
   async function readBatch(uris) {
@@ -499,7 +605,12 @@
     window.location.assign(u.toString());
   });
 
-  // Kick off meta fetch then start streaming
-  if (currentRoom) fetchMeta(currentRoom);
+  // Kick off meta fetch and history replay in parallel with the live stream.
+  // History runs first so its records land before observe emits new ones,
+  // but the dedupe set guarantees correctness regardless of arrival order.
+  if (currentRoom) {
+    fetchMeta(currentRoom);
+    loadHistory(currentRoom);
+  }
   observeForever();
 })();
