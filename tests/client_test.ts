@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { observeStreamFromRig } from "../src/client.ts";
+import { msgUri, joinUri } from "../src/protocol.ts";
 import { ObserveEmitter } from "@bandeira-tech/b3nd-core";
 
 /**
@@ -27,20 +28,24 @@ Deno.test("observeStreamFromRig surfaces deliveries posted after subscribe", asy
   const node = stubRig();
   const abort = new AbortController();
   const seen: { uri: string; payload: string | null }[] = [];
+  const root = "immutable://open/cc-chat/";
+  const room = "20260623120000-test";
 
   const consumer = (async () => {
-    for await (const d of observeStreamFromRig(node, "cc-chat://**", abort.signal)) {
+    for await (const d of observeStreamFromRig(node, `${root}${room}/**`, abort.signal)) {
       seen.push(d);
       if (seen.length >= 2) abort.abort();
     }
   })();
 
   await new Promise((r) => setTimeout(r, 10));
-  await node.receive("cc-chat://stream/a/20260623-aaa", "hi");
-  await node.receive("cc-chat://stream/b/20260623-bbb", "there");
+  const uri1 = msgUri(root, room, "alice", "msg1");
+  const uri2 = msgUri(root, room, "bob", "msg2");
+  await node.receive(uri1, "hi");
+  await node.receive(uri2, "there");
   await consumer;
 
   assertEquals(seen.length, 2);
-  assertEquals(seen[0].uri, "cc-chat://stream/a/20260623-aaa");
+  assertEquals(seen[0].uri, uri1);
   assertEquals(seen[0].payload, "hi");
 });
