@@ -39,7 +39,7 @@ participant-tool-budget: full-always
 ---
 ```
 
-### Step 3 — Mint `<root>/<room>/meta.md`
+### Step 3 — Mint `<root><room>/meta.md`
 
 The room now exists. Mint one immutable identity card via:
 
@@ -58,7 +58,7 @@ tool_budget: <read-only-chat | full-this-run | full-always>
 deliverable:
   shape: <free-form description from prose>
   file: ./.cc-chat/<room>/output.md
-  chat_uri: <root>/<room>/manager/output/
+  chat_uri: <root><room>/manager/output/
 participants:
   - name: <participant>
     scope: <path>
@@ -183,13 +183,13 @@ Identity
 Tool budget: <read-only-chat | full-this-run | full-always>
 
 Step 1 — JOIN.
-Mint <root>/<room>/<you>/join/<ts>-<nonce>.json via:
+Mint <root><room>/<you>/join/<ts>-<nonce>.json via:
   b3nd_receive({ messages: [[ "<root><room>/<you>/join/<ts>-<nonce>.json",
     "{\"scope\":\"<path>\",\"role\":\"<role>\"}" ]] })
 You are now in the room.
 
 Step 2 — BRIEF.
-Read <root>/<room>/meta.md. That's the room's brief: goal,
+Read <root><room>/meta.md. That's the room's brief: goal,
 participants, deliverable, rules.
 
 Step 3 — INITIATIVE.
@@ -239,7 +239,7 @@ Subscriptions
     - URI contains /manager/output/  → the deliverable is posted
 
 Constraints
-- Don't mint outside <root>/<room>/<you>/.
+- Don't mint outside <root><room>/<you>/.
 - Don't mint type=pause, type=resume, or manager-closing
   type=end. Those are manager-only.
 - Don't draft the deliverable. The manager produces output.

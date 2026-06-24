@@ -93,21 +93,28 @@ unless the user already chose one earlier.
 1. Ask via `AskUserQuestion` for the fs root: `["~/cc-chat-data",
    "./.cc-chat-data", "Pick a custom path"]`.
 2. **Preview the on-disk layout before scaffolding.** With URI root
-   `immutable://open/cc-chat/` and fs root `~/cc-chat-data`, sending
-   `immutable://open/cc-chat/stream/alice/20260624120014-x9q2mp` (text
-   `"hello"`) lands as:
+   `immutable://open/cc-chat/` and fs root `~/cc-chat-data`, the unified
+   URI shape is `immutable://open/cc-chat/<room>/<participant>/<type>/<ts>-<slug>.md`
+   (or `.json` for join records). For example:
 
-   ```
-   ~/cc-chat-data/immutable_open/cc-chat/stream/alice/20260624120014-x9q2mp.bin
-   ← contains "hello"
-   ```
+   - Room meta card:
+     ```
+     immutable://open/cc-chat/20260624120000-design-review/meta.md
+     → ~/cc-chat-data/immutable_open/cc-chat/20260624120000-design-review/meta.md.bin
+     ```
+   - Manager message:
+     ```
+     immutable://open/cc-chat/20260624120000-design-review/manager/msg/20260624120100-x9q2mp.md
+     → ~/cc-chat-data/immutable_open/cc-chat/20260624120000-design-review/manager/msg/20260624120100-x9q2mp.md.bin
+     ```
+   - Participant join:
+     ```
+     immutable://open/cc-chat/20260624120000-design-review/src-auth/join/20260624120005-abc123.json
+     → ~/cc-chat-data/immutable_open/cc-chat/20260624120000-design-review/src-auth/join/20260624120005-abc123.json.bin
+     ```
 
-   And the matching presence URI lands as:
-
-   ```
-   ~/cc-chat-data/immutable_open/cc-chat/presence/alice/20260624120005-abc123.bin
-   ← contains "join"
-   ```
+   The 7 URI types are: `join`, `msg`, `mention`, `pause`, `resume`, `end`, `output`.
+   All land under `<room>/<participant>/<type>/`.
 
    (`b3nd-save/fs` maps `proto://host/path` to `proto_host/path.bin`.
    Different URI root → adapt: `mutable://open/cc-chat/` maps under
