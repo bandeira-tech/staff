@@ -101,11 +101,13 @@ even though their valid URL shapes don't overlap, the verb must be declared
 when wildcards are present (see §3.4). For a bare URI (no wildcards), `?fn=`
 may be omitted and defaults to `read`. This is the only inference.
 
-### 3.3 Glob grammar (one source of truth)
+### 3.3 Glob grammar (one source of truth — see §3.3.1 for the actual delta)
 
-The glob grammar is the **one already in `b3nd-core/src/match-pattern/
-match-pattern.ts`** — the engine that already powers route matching and
-observe subscriptions. It accepts:
+The grammar the caller writes — what user code, docs, and tests all see —
+is the table below. `b3nd-core/src/match-pattern.ts` already implements a
+**subset** of this grammar (it has powered route matching and observe
+subscriptions since day one); §3.3.1 documents the small delta and how
+save closes it without changing core.
 
 | Token | Means                                              | Crosses `/`? | Valid under |
 |-------|----------------------------------------------------|--------------|-------------|
@@ -126,7 +128,63 @@ Rules:
 
 Anchoring: the pattern matches the URL tail after the routing prefix; same
 behavior as `matchesUriPattern` does today (`b3nd-save/src/read.ts:192-199`,
-to be replaced by a thin wrapper around `compilePattern`).
+to be replaced by the wrapper described in §3.3.1).
+
+### 3.3.1 Amendment — save-side wrapper around `compilePattern`
+
+**Why this section exists.** §3.3 above promises the user-facing grammar
+matches `b3nd-core/src/match-pattern.ts`. The first dev-coordination round
+(`20260625153505-find-fn-impl`) surfaced that this is not literally true
+today — `compilePattern` is a strict subset of what §3.3 promises. The
+honest resolution is to keep core unchanged (§7.1 commitment is
+load-bearing for routing/observe semantics) and have save ship a thin
+wrapper that closes the delta. Caller-visible behavior matches §3.3
+exactly; the wrapping is an internal implementation detail.
+
+**The actual `compilePattern` grammar today** (`b3nd-core/src/
+match-pattern/match-pattern.ts:46-58`):
+
+| Token | What core does today                                       | What §3.3 promises | Delta |
+|-------|------------------------------------------------------------|--------------------|-------|
+| `?`   | not recognized (parses as literal `?`)                     | one non-`/` char   | **delta** |
+| `*`   | one or more non-`/` chars (`[^/]+`)                        | zero or more (`[^/]*`) | **delta on empty-segment matching** |
+| `**`  | only valid as the final segment; throws otherwise          | any position       | **delta on mid-`**` patterns** |
+
+**The wrapper.** Save ships `compileSaveGlob(pattern)` (proposed location:
+`b3nd-save/src/glob.ts`, or extend `b3nd-save/src/read.ts`). Behavior:
+
+1. **Patterns inside `compilePattern`'s supported subset** — single trailing
+   `**` (or none), no `?`, every `*` segment matches a non-empty segment —
+   delegate to `compilePattern` 1:1. Same engine, same code path, same fast
+   paths. Routing-layer matches and save-layer matches agree byte-for-byte.
+2. **Patterns outside that subset** — `?`, mid-`**`, or empty-segment `*` —
+   save compiles its own regex with the §3.3 semantics. The wrapper detects
+   which path applies and dispatches; the choice is invisible to callers.
+
+`compileSaveGlob` returns the same `RegExp`-or-tester shape `compilePattern`
+returns today, so every existing site that uses `compilePattern` output
+can swap in `compileSaveGlob` without other changes.
+
+**SQL-LIKE adapter.** The SQL push-down path (`patternToSqlLike` deletion
+notwithstanding) needs a separate adapter because SQL-LIKE has different
+metacharacters than regex. Same shape: defer to a `compilePattern`-style
+helper for the supported subset; do save-local string building for the
+broader grammar (`**` → `%`, `?` → `_`, etc.).
+
+**Important consequence: foundation PR ships TWO save-side adapters, not
+one.** `compileSaveGlob` for the regex path, plus a SQL-LIKE adapter for
+SQL push-down. Both are small. Both are honest about wrapping vs
+extending core. Round-1's "patternToRegex / patternToRegexBody /
+patternToSqlLike all deleted" is amended to: "deleted as separate
+maintained grammars; their *output shapes* survive inside the two new
+adapters, which now defer to core's `compilePattern` for the supported
+subset rather than reimplementing the wheel."
+
+**Tests.** The foundation PR's shared find-conformance suite MUST
+exercise both wrapper paths — patterns inside core's subset and patterns
+outside it — and assert byte-equality with `compilePattern` for the
+inside-subset case. Without that, the wrapper could silently drift from
+core's grammar where they're supposed to agree.
 
 ### 3.4 Why `?fn=` is required when wildcards are present
 
