@@ -88,7 +88,10 @@
     : `${rootPath}**`;
 
   // Visual ageing windows. Independent of the rig's bridge buffer.
-  const PRESENCE_WINDOW_MS = 30_000; // name considered "here" if seen within
+  // PRESENCE_WINDOW_MS bounds the "Ns / Nm ago" activity badge — names DO NOT
+  // age out of the roster. Roster authority is `inRoom` (any URI seen, minus
+  // /end/), mirroring src/roster.ts's joined−ended model.
+  const PRESENCE_WINDOW_MS = 30_000;
 
   // ---- url-list encoder (browser-side, matches b3nd-move/codecs) ----
   function encodeUrlList(urls) {
@@ -143,38 +146,58 @@
 
   function pad(n) { return String(n).padStart(2, "0"); }
 
-  // ---- Roster: name → lastSeenMs ----
+  // ---- Roster: join−end as the source of truth ----
+  // `inRoom` is the authoritative presence set — any participant we've seen
+  // any URI for, minus anyone who has minted an /end/. Mirrors src/roster.ts.
+  // `lastSeen` is a secondary signal used only for the "Ns ago" activity
+  // badge; names stay in the roster regardless of `lastSeen` freshness.
+  const inRoom = new Set();
   const lastSeen = new Map();
-  function noteSeen(name) { lastSeen.set(name, Date.now()); }
+  function noteSeen(name) {
+    inRoom.add(name);
+    lastSeen.set(name, Date.now());
+  }
+  function noteEnd(name) {
+    inRoom.delete(name);
+    lastSeen.delete(name);
+  }
+
+  function formatAge(ms) {
+    if (ms < 1000) return "now";
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    return `${hr}h`;
+  }
 
   function renderRoster() {
     const now = Date.now();
-    const active = [];
-    for (const [name, ts] of lastSeen) {
-      const age = now - ts;
-      if (age > PRESENCE_WINDOW_MS) {
-        lastSeen.delete(name);
-        continue;
-      }
-      active.push({ name, ts, age });
-    }
-    active.sort((a, b) => a.name.localeCompare(b.name));
+    const names = [...inRoom].sort((a, b) => a.localeCompare(b));
 
     presenceList.replaceChildren();
-    if (active.length === 0) {
+    if (names.length === 0) {
       const li = document.createElement("li");
       li.className = "empty-roster";
       li.textContent = "no one";
       presenceList.appendChild(li);
       return;
     }
-    for (const { name, age } of active) {
+    for (const name of names) {
       const li = document.createElement("li");
       li.style.color = colorFor(name);
-      const sec = Math.max(0, Math.floor(age / 1000));
       li.innerHTML = `<span class="dot"></span><span class="nm"></span><span class="ago"></span>`;
       li.querySelector(".nm").textContent = name;
-      li.querySelector(".ago").textContent = sec < 1 ? "now" : `${sec}s`;
+      const ts = lastSeen.get(name);
+      const agoEl = li.querySelector(".ago");
+      if (ts == null) {
+        agoEl.textContent = "";
+      } else {
+        const age = now - ts;
+        agoEl.textContent = formatAge(age);
+        if (age > PRESENCE_WINDOW_MS) li.classList.add("idle");
+      }
       presenceList.appendChild(li);
     }
   }
@@ -256,7 +279,7 @@
         const whoEl = row.querySelector(".who");
         whoEl.textContent = parsed.who;
         whoEl.style.color = colorFor(parsed.who);
-        lastSeen.delete(parsed.who);
+        noteEnd(parsed.who);
         renderRoster();
         break;
       }
