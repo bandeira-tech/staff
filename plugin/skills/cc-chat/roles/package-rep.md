@@ -1,6 +1,6 @@
 ---
 slug: package-rep
-summary: Per-package position-holder in deliberative spec rooms. Parametrized by package (`b3nd-core`, `b3nd-move`, `b3nd-save`, `b3nd-cc-chat`, etc.). Speaks for that package's interests + constraints, refuses cross-layer leakage.
+summary: Per-package position-holder in spec rooms; parametrized by package. Speaks for that package's interests + constraints, refuses cross-layer leakage.
 sourced_from:
   - 20260624212937-rig-routes
   - 20260624224342-payload-contract

@@ -5,7 +5,8 @@
     ".": "./src/mod.ts",
     "./protocol": "./src/protocol.ts",
     "./client": "./src/client.ts",
-    "./roster": "./src/roster.ts"
+    "./roster": "./src/roster.ts",
+    "./roles": "./src/roles.ts"
   },
   "imports": {
     "@bandeira-tech/b3nd-core": "../b3nd-core/mod.ts",
@@ -17,7 +18,8 @@
   "tasks": {
     "test": "deno test --allow-all tests/",
     "tail": "deno run --allow-net --allow-env scripts/tail.ts",
-    "say": "deno run --allow-net scripts/say.ts"
+    "say": "deno run --allow-net scripts/say.ts",
+    "lint-roles": "deno run --allow-read scripts/lint-roles.ts"
   },
   "compilerOptions": {
     "strict": true,

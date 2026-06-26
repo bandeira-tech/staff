@@ -8,3 +8,4 @@ export * from "./protocol.ts";
 export * from "./client.ts";
 export * from "./roster.ts";
 export * from "./tail.ts";
+export * from "./roles.ts";
