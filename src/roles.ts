@@ -64,7 +64,7 @@ export interface ResolvedRole {
 }
 
 /** Returns true if a slug is well-formed. */
-export function isValidSlug(slug: string): boolean {
+export function isValidRoleSlug(slug: string): boolean {
   return SLUG_RE.test(slug);
 }
 
@@ -184,7 +184,7 @@ export function lintRoleFile(file: RoleFile, expectedSlug?: string): LintIssue[]
   const issues: LintIssue[] = [];
   const { frontmatter, body, path } = file;
 
-  if (!isValidSlug(frontmatter.slug)) {
+  if (!isValidRoleSlug(frontmatter.slug)) {
     issues.push({
       kind: "error",
       message: `${path}: slug "${frontmatter.slug}" does not match [a-z0-9][a-z0-9-]{0,31}`,
@@ -226,7 +226,7 @@ export async function resolveRole(
   slug: string,
   opts: ResolveOptions,
 ): Promise<ResolvedRole | null> {
-  if (!isValidSlug(slug)) {
+  if (!isValidRoleSlug(slug)) {
     throw new Error(`resolveRole: invalid slug "${slug}"`);
   }
   const localPath = `${opts.projectRoot}/.claude/cc-chat/roles/${slug}.md`;

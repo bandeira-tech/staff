@@ -1,6 +1,6 @@
 import { assertEquals, assertExists, assertStringIncludes, assertThrows } from "@std/assert";
 import {
-  isValidSlug,
+  isValidRoleSlug,
   lintRoleFile,
   listRoles,
   parseRoleFile,
@@ -49,14 +49,14 @@ Project-local override variant.
 await write(`${pluginRoot}/skills/cc-chat/roles/qa.md`, QA_PLUGIN);
 await write(`${projectRoot}/.claude/cc-chat/roles/qa.md`, QA_LOCAL);
 
-Deno.test("isValidSlug accepts canonical shapes, rejects garbage", () => {
-  assertEquals(isValidSlug("qa"), true);
-  assertEquals(isValidSlug("package-rep"), true);
-  assertEquals(isValidSlug("a"), true);
-  assertEquals(isValidSlug(""), false);
-  assertEquals(isValidSlug("Foo"), false);
-  assertEquals(isValidSlug("-foo"), false);
-  assertEquals(isValidSlug("foo/bar"), false);
+Deno.test("isValidRoleSlug accepts canonical shapes, rejects garbage", () => {
+  assertEquals(isValidRoleSlug("qa"), true);
+  assertEquals(isValidRoleSlug("package-rep"), true);
+  assertEquals(isValidRoleSlug("a"), true);
+  assertEquals(isValidRoleSlug(""), false);
+  assertEquals(isValidRoleSlug("Foo"), false);
+  assertEquals(isValidRoleSlug("-foo"), false);
+  assertEquals(isValidRoleSlug("foo/bar"), false);
 });
 
 Deno.test("parseRoleFile reads required + optional frontmatter", () => {
