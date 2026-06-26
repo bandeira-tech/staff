@@ -124,6 +124,26 @@ Default participant disposition in a coordination: **do, don't ask**. The
 brief in `meta.md` and the participant's scope are the authority. The manager
 and user steer; participants execute.
 
+## Growing roles (role files + retro)
+
+cc-chat coordinations grow a library of **role files** — persistent briefs that pre-roll a participant's prompt with lived experience from prior rooms. Two locations:
+
+- `plugin/skills/cc-chat/roles/<slug>.md` — plugin-shipped library (the baseline).
+- `.claude/cc-chat/roles/<slug>.md` — project-local override (full replacement, not merge).
+
+At dispatch time (`/cc-chat:manage-coordination` Step 1.5), the manager resolves a role file for each participant's `<slug>` via the precedence chain above. The resolved path is baked into `meta.md`'s `participants[].role_file` field. The role file's body is interpolated **verbatim** into the participant prompt under the identity block (between `Your role:` and `Tool budget:`), as `Standing role brief (from <path>@v<n>):`. No file? Off-the-cuff path — the section is omitted; no warning.
+
+After Step 9 (deliverable minted), Step 9.5 runs an **auto-retro**: a `retro-pass` subagent reads the room, proposes diffs to each summoned role's resolved file (writing `.cc-chat/<room>/retro/<slug>.proposed.md`), and the manager walks per-role `AskUserQuestion` approval (Accept / Edit / Skip / Save for later). Accepted bodies write through to the resolved target path; no auto-commit. Idempotency: auto-retro skips if every role's `sourced_from` already lists this room.
+
+Surface commands:
+
+- `/cc-chat:role-list` — every role known to this project, deduped, local-wins.
+- `/cc-chat:role-show <slug>` — print the resolved file with provenance header.
+- `/cc-chat:role-edit <slug>` — open in $EDITOR; fork to local if only the plugin copy exists.
+- `/cc-chat:role-retro [<room>]` — manual entry to the retro loop (bypasses idempotency).
+
+Schema in `src/roles.ts`. Body is freeform markdown (H2 sections — `## When to summon`, `## Default scope hint`, `## First moves`, `## Habits`, `## Anti-patterns`, `## Handoff`); frontmatter carries addressing/provenance/version only. Lint via `deno task lint-roles`.
+
 ## Subscribing to a room
 
 Subscribe with a single pattern — the full room glob:

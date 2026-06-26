@@ -22,6 +22,26 @@ Extract from `$ARGUMENTS`:
 
 Pre-flight scan per CLAUDE.md: if goal, participants, or deliverable destinations are ambiguous or in conflict, surface **one** batched `AskUserQuestion` before doing anything else. Never one interrupt per discovery.
 
+### Step 1.5 — Resolve role files for each participant
+
+Before minting `meta.md` (Step 3), resolve a standing role brief for every participant. The brief comes from a markdown file under one of two roots, with project-local taking precedence:
+
+1. `<project>/.claude/cc-chat/roles/<slug>.md` (project-local override)
+2. `${CLAUDE_PLUGIN_ROOT}/skills/cc-chat/roles/<slug>.md` (plugin-shipped fallback)
+3. None — the participant runs off-the-cuff with just the per-room `role:` line. Not an error; no prompt to the user.
+
+`<slug>` is the participant's `name`. Override is **full replacement**, not merge.
+
+Use `src/roles.ts`'s `resolveRole(slug, { projectRoot, pluginRoot })` — it returns `{ file, source }` (or `null`) and handles the precedence chain.
+
+**Bake the resolved path into `meta.md`** (Step 3 frontmatter). For each participant, add a `role_file` field carrying the absolute path + `@v<n>` suffix (or `null` if no file was found). This is what auto-retro (Step 9.5) reads later to know which file to propose against — preserving the precedence chain across the retro loop.
+
+**Per-room overrides:** `/cc-chat:manage-coordination` accepts (rare) flags:
+- `--no-role-files` — skip resolution entirely; everyone runs off-the-cuff.
+- `--role <name>=<absolute-path>` — point a slot at an arbitrary file, ignoring the lookup chain.
+
+Default is resolve-normally.
+
 ### Step 2 — Tool-budget check
 
 Read `.claude/cc-chat.local.md` for the `participant-tool-budget` key. Accepted values: `read-only-chat | full-this-run | full-always`.
@@ -63,6 +83,7 @@ participants:
   - name: <participant>
     scope: <path>
     role: <one line>
+    role_file: <absolute path>@v<n>   # null if no file resolved (Step 1.5)
   - ...
 ---
 
@@ -169,6 +190,25 @@ Two simultaneous actions — contents must match byte-for-byte:
 
 The working-tree file and the `output` URI are identical. This is the deliverable.
 
+### Step 9.5 — Auto-retro (growing roles)
+
+After the deliverable is minted (Step 9), and before closing the room (Step 10), run the retro-pass to grow the role library — unless `meta.md` declares `retro: skip` or the idempotency rule says every role has already absorbed this room.
+
+1. Mint `manager/pause/<ts>-retro.md` with reason "running retro-pass; growing role library".
+2. Read every participant's resolved `role_file` from `meta.md`. Run `shouldSkipAutoRetro(roomSlug, participants)` from `src/retro.ts`. If `skip === true`, log the reason in the close-out report, mint `manager/resume/<ts>-retro.md`, and proceed to Step 10. Done.
+3. Otherwise dispatch the `retro-pass` agent (`plugin/agents/retro-pass.md`) with:
+   - `roomSlug`
+   - `projectRoot`
+   - `pluginRoot` = `${CLAUDE_PLUGIN_ROOT}`
+   - `mode: auto`
+
+   The agent reads the room, composes proposed diffs, writes `.cc-chat/<room>/retro/<slug>.proposed.md` per role, posts one summary msg, and exits.
+4. **Walk the approval loop** per design-spec §5.3. For each proposed file, surface one `AskUserQuestion` with the four options (Accept / Edit / Skip / Save for later) — see `/cc-chat:role-retro` for the canonical wording.
+5. Apply accepted bodies via `src/retro.ts`'s `buildAcceptedBody(...)`. Write through to the resolved target path. **Do not auto-commit.** Surface the file changes in the closing report (Step 10) so the user commits via their normal flow — or, in worker rooms with `meta.code_target:`, hands off to the head-of-impl seat.
+6. Mint `manager/resume/<ts>-retro.md` and proceed to Step 10.
+
+If `meta.md` declares `retro: skip`, skip the entire step and proceed straight to Step 10. Trivial one-off rooms can opt out without paying the retro cost.
+
 ### Step 10 — Close the room
 
 Mint `manager/end/<ts>-<nonce>.md` if not already done:
@@ -199,6 +239,17 @@ Identity
 - Your name: <participant>
 - Your scope: <path>
 - Your role: <one line>
+
+<!--
+If a role file was resolved at Step 1.5, append the standing brief here.
+Use `renderStandingBrief(resolvedRole)` from src/roles.ts — it returns a
+prose section in the shape:
+
+  Standing role brief (from <abs/path>@v<n>):
+  <verbatim body of the file>
+
+If no file was resolved, omit this section. Cleanly degradable.
+-->
 
 Tool budget: <read-only-chat | full-this-run | full-always>
 
