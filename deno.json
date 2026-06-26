@@ -6,7 +6,8 @@
     "./protocol": "./src/protocol.ts",
     "./client": "./src/client.ts",
     "./roster": "./src/roster.ts",
-    "./roles": "./src/roles.ts"
+    "./roles": "./src/roles.ts",
+    "./retro": "./src/retro.ts"
   },
   "imports": {
     "@bandeira-tech/b3nd-core": "../b3nd-core/mod.ts",
