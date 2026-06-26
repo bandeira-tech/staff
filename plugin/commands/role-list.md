@@ -26,6 +26,6 @@ Rules:
 - The SOURCE column says `local override` (override active) or `plugin` (no override).
 - Sort alphabetically by slug.
 - Use `src/roles.ts`'s `listRoles({ projectRoot, pluginRoot })` if you want the parsing already done — it returns a sorted, deduped list of `ResolvedRole` values with `source` populated.
-- If neither dir exists or both are empty, print "no roles registered. Add files under plugin/skills/cc-chat/roles/<slug>.md (plugin library) or .claude/cc-chat/roles/<slug>.md (project-local)."
+- If neither dir exists or both are empty, print "no roles registered yet. Roles grow as you run coordinations — `/cc-chat:manage-coordination` proposes new seeds via auto-retro, landing them at `.claude/cc-chat/roles/<slug>.md` by default. The plugin ships the mechanism; cards are user data."
 
 No flags, no args, no interactive prompts. This is a read-only listing.

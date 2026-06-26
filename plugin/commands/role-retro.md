@@ -47,13 +47,7 @@ Retro proposes a v<N+1> for role "<slug>". <one-line summary of the change>.
   [ Save for later ] Leave the .proposed.md in place; no decision now.
 ```
 
-`<resolved target path>` is the path that dispatch resolved at the start of the room — recorded in `meta.md`'s `role_file` field. If the room had no `role_file` resolution and this is a new seed, the path defaults to `plugin/skills/cc-chat/roles/<slug>.md`, with a follow-up question on accept:
-
-```
-This is a new seed. Land it as:
-  [ Plugin-shipped (plugin/skills/cc-chat/roles/<slug>.md) — recommended ]
-  [ Project-local (.claude/cc-chat/roles/<slug>.md) ]
-```
+`<resolved target path>` is the path that dispatch resolved at the start of the room — recorded in `meta.md`'s `role_file` field. If the room had no `role_file` resolution and this is a new seed, the path defaults to `.claude/cc-chat/roles/<slug>.md` (project-local — the user-grown roster). No follow-up question; the plugin tree is not a write target for user-grown cards.
 
 Landing rules (per design-spec §5.4):
 

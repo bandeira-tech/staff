@@ -16,8 +16,8 @@ Two paths, same job:
 
 In both cases your inputs are:
 - `<room>` slug (e.g. `20260626220134-role-growth`)
-- Project root (where `.cc-chat/<room>/meta.md` lives)
-- Plugin root (where `plugin/skills/cc-chat/roles/` ships)
+- Project root (where `.cc-chat/<room>/meta.md` lives, and where `.claude/cc-chat/roles/` is the default new-seed target)
+- Plugin root (where `${CLAUDE_PLUGIN_ROOT}/skills/cc-chat/roles/` is the fallback library — empty by default; the plugin ships the mechanism, not cards)
 
 # Your scope
 
@@ -106,7 +106,7 @@ Then mint your `<root><room>/retro-pass/end/<ts>-<nonce>.json` and exit.
 
 # What you do NOT do
 
-- **Do not write to plugin/skills/cc-chat/roles/ or .claude/cc-chat/roles/.** That's the approval step's job. You only write `.proposed.md` files under the room ledger.
+- **Do not write to `.claude/cc-chat/roles/` (or any plugin-side roles directory).** That's the approval step's job. You only write `.proposed.md` files under the room ledger.
 - **Do not commit.** The user accepts via AskUserQuestion, then their normal commit flow writes through. In worker rooms with `code_target:`, impl handles the commit.
 - **Do not rewrite meta.md.** The room's `meta.md` is immutable per the cc-chat protocol.
 - **Do not propose deletions.** Deletion is manual (`rm`).

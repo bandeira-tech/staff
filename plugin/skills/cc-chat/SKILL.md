@@ -126,14 +126,18 @@ and user steer; participants execute.
 
 ## Growing roles (role files + retro)
 
-cc-chat coordinations grow a library of **role files** — persistent briefs that pre-roll a participant's prompt with lived experience from prior rooms. Two locations:
+cc-chat coordinations can grow a library of **role files** — persistent briefs that pre-roll a participant's prompt with lived experience from prior rooms.
 
-- `plugin/skills/cc-chat/roles/<slug>.md` — plugin-shipped library (the baseline).
-- `.claude/cc-chat/roles/<slug>.md` — project-local override (full replacement, not merge).
+The plugin ships the **mechanism** (schema, two-dir resolver, surface commands, retro flow); it ships **no role cards**. Users grow their own roster as rooms run. Two lookup locations, precedence highest-first:
 
-At dispatch time (`/cc-chat:manage-coordination` Step 1.5), the manager resolves a role file for each participant's `<slug>` via the precedence chain above. The resolved path is baked into `meta.md`'s `participants[].role_file` field. The role file's body is interpolated **verbatim** into the participant prompt under the identity block (between `Your role:` and `Tool budget:`), as `Standing role brief (from <path>@v<n>):`. No file? Off-the-cuff path — the section is omitted; no warning.
+- `<project>/.claude/cc-chat/roles/<slug>.md` — project-local override.
+- `${CLAUDE_PLUGIN_ROOT}/skills/cc-chat/roles/<slug>.md` — plugin-shipped library. Empty by default; populated only if a downstream packager bundles cards. **An empty plugin roles directory is the default, not a bug.**
 
-After Step 9 (deliverable minted), Step 9.5 runs an **auto-retro**: a `retro-pass` subagent reads the room, proposes diffs to each summoned role's resolved file (writing `.cc-chat/<room>/retro/<slug>.proposed.md`), and the manager walks per-role `AskUserQuestion` approval (Accept / Edit / Skip / Save for later). Accepted bodies write through to the resolved target path; no auto-commit. Idempotency: auto-retro skips if every role's `sourced_from` already lists this room.
+If neither location holds a file for a participant's `<slug>`, dispatch runs off-the-cuff — the standing-brief section is omitted from the participant prompt; no warning, no error.
+
+At dispatch time (`/cc-chat:manage-coordination` Step 1.5), the manager resolves a role file for each participant's `<slug>` via the precedence chain above. The resolved path is baked into `meta.md`'s `participants[].role_file` field. The role file's body is interpolated **verbatim** into the participant prompt under the identity block (between `Your role:` and `Tool budget:`), as `Standing role brief (from <path>@v<n>):`.
+
+After Step 9 (deliverable minted), Step 9.5 runs an **auto-retro**: a `retro-pass` subagent reads the room, proposes diffs to each summoned role's resolved file (writing `.cc-chat/<room>/retro/<slug>.proposed.md`), and the manager walks per-role `AskUserQuestion` approval (Accept / Edit / Skip / Save for later). Accepted bodies write through to the resolved target path (project-local for new seeds by default); no auto-commit. Idempotency: auto-retro skips if every role's `sourced_from` already lists this room.
 
 Surface commands:
 
