@@ -13,7 +13,9 @@
 /// <reference lib="deno.ns" />
 
 import { ensureDir } from "jsr:@std/fs@^1/ensure-dir";
+import { walk } from "jsr:@std/fs@^1/walk";
 import { dirname } from "jsr:@std/path@^1/dirname";
+import { relative } from "jsr:@std/path@^1/relative";
 
 // Sibling-repo imports via absolute paths.
 // Use specific subpath imports to avoid pulling in the encrypt/identity
@@ -79,6 +81,31 @@ function createFsExecutor(_rootDir: string): FsExecutor {
         return [];
       }
       return files;
+    },
+
+    async *walkFiles(dir: string): AsyncIterable<string> {
+      // @std/fs/walk yields entries lazily; emit files only and convert
+      // absolute paths back to paths relative to `dir`. Missing dir →
+      // walk throws on first iteration; swallow to yield nothing,
+      // matching the FsExecutor contract (empty/missing dir = no
+      // entries, never an error).
+      try {
+        for await (
+          const entry of walk(dir, {
+            includeDirs: false,
+            includeFiles: true,
+            includeSymlinks: false,
+            followSymlinks: false,
+          })
+        ) {
+          // Normalise to forward slashes so the FsStore can compose
+          // paths with `/` regardless of OS.
+          const rel = relative(dir, entry.path).replaceAll("\\", "/");
+          yield rel;
+        }
+      } catch {
+        // No directory, no permissions, etc. — yield nothing.
+      }
     },
   };
 }
