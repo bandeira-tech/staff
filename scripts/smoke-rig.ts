@@ -122,32 +122,15 @@ const store = new FsStore(ROOT_DIR, executor);
 const meta = store.entitySupport(BYTES_ENTITY);
 await store.provisionEntity(meta);
 
-// Build the SaveClient
+// Build the SaveClient. FsStore returns ReadableStream<Uint8Array> for
+// bytes-entity reads; the b3nd-move HTTP read route materializes streams
+// to Uint8Array at the wire boundary (per the round-3 payload-shape
+// contract revision at immutable://open/cc-chat/20260624224342-payload-contract/).
+// SaveClient stays puritan; no host-side wrapper.
 const saveClient = new SaveClient(mapToBytes, BYTES_ENTITY, store);
 
-// FsStore + bytes-entity returns `{ payload: ReadableStream }` per slot;
-// SaveClient unwraps to the stream as-is. The HTTP wire's outputs-frame
-// codec expects `Uint8Array` for raw bytes — a `ReadableStream` hits the
-// JSON.stringify fallback and serializes as `{}`. Buffer the stream into a
-// `Uint8Array` per slot before it reaches the codec. Workaround for an
-// upstream gap (b3nd-save / b3nd-move); not load-bearing for in-process use.
-function bufferStreamsInRead<T extends { read: (urls: string[]) => Promise<Array<readonly [string, unknown]>> }>(inner: T): T {
-  const orig = inner.read.bind(inner);
-  inner.read = async (urls: string[]) => {
-    const rows = await orig(urls);
-    return Promise.all(rows.map(async ([uri, payload]) => {
-      if (payload && typeof payload === "object" && typeof (payload as ReadableStream).getReader === "function") {
-        const bytes = new Uint8Array(await new Response(payload as ReadableStream<Uint8Array>).arrayBuffer());
-        return [uri, bytes] as const;
-      }
-      return [uri, payload] as const;
-    }));
-  };
-  return inner;
-}
-
 // Wire into rig — match all immutable:// URIs
-const conn = connection(bufferStreamsInRead(saveClient), ["immutable://**"]);
+const conn = connection(saveClient, ["immutable://**"]);
 
 const rig = new Rig({
   routes: {
