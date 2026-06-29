@@ -1,0 +1,13 @@
+{
+  "name": "staff",
+  "owner": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
+  "plugins": [
+    {
+      "name": "staff",
+      "source": ".",
+      "description": "STAFF — Claude as Chief of Staff. Traits + Plays over a b3nd rig.",
+      "version": "0.1.0",
+      "license": "MIT"
+    }
+  ]
+}

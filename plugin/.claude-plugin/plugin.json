@@ -1,0 +1,8 @@
+{
+  "name": "staff",
+  "version": "0.1.0",
+  "description": "STAFF by BANDEIRA.TECH — Claude as Chief of Staff. Atomic primitives (Traits, Plays) over a b3nd rig. MVP ships skills + commands as prose; MCP wiring lands in pass 2.",
+  "author": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
+  "license": "MIT",
+  "keywords": ["b3nd", "agents", "claude-code", "staff", "traits", "plays"]
+}
