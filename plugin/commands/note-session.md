@@ -1,6 +1,6 @@
 ---
 description: Mint a new <ts>-update.md leaf on a session.
-argument-hint: <one-line note: decision, transition, blocker>
+argument-hint: <session-name> <one-line note: decision, transition, blocker>
 ---
 
 You are appending an **update** leaf to a session in the STAFF
@@ -10,12 +10,20 @@ stands alone.
 
 ## Steps
 
+0. **Resolve the root.**
+   - `$STAFF_ROOT` if set (env override).
+   - Otherwise, the nearest `.staff/` directory walking up from cwd.
+   - Otherwise, `~/.staff/` (the encouraged default — data compounds
+     across the builder's work).
+   Lazily `mkdir -p` the resolved root if writing for the first time.
+   Announce the resolved root on first use this turn.
+
 1. **Resolve the session name.**
-   - We'll address active-session tracking once the design lands;
-     for now expect the session name to be provided (by the user, or
-     by the dispatcher / chief of staff calling this command).
-   - If the session name is absent, surface that the user must
-     `/staff:open-session` first (or pass the name explicitly) and stop.
+   The session name MUST be passed in — by the user, or by the
+   dispatcher / chief calling this command. There is no stored
+   "current session". If the name is missing, surface that clearly
+   and stop: ask the caller to pass the session name (or
+   `/staff:open-session` first if none exists yet).
 
 2. **Compose the body.**
    Format the line as: `<HH:MM> <category> <body>` where `<category>` ∈
@@ -24,12 +32,9 @@ stands alone.
    block if the update warrants it.
 
 3. **Mint a new update leaf.**
-   ```
-   b3nd_receive { messages: [[
-     "<root>sessions/<session-name>/<ts>-update.md",
-     "<body>"
-   ]] }
-   ```
+   Write the file at `<root>sessions/<session-name>/<ts>-update.md`.
+   If a b3nd rig is wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>sessions/<session-name>/<ts>-update.md", "<body>" ]] }`.
    `<ts>` is fresh (UTC `YYYYMMDDhhmmss`) on every call — that's how
    updates remain distinct files.
 

@@ -16,6 +16,14 @@ under the session's directory:
 
 ## Steps
 
+0. **Resolve the root.**
+   - `$STAFF_ROOT` if set (env override).
+   - Otherwise, the nearest `.staff/` directory walking up from cwd.
+   - Otherwise, `~/.staff/` (the encouraged default — data compounds
+     across the builder's work).
+   Lazily `mkdir -p` the resolved root if writing for the first time.
+   Announce the resolved root on first use this turn.
+
 1. **Parse prose → session shape.**
    From `$ARGUMENTS`, extract:
    - A session name — `[a-z0-9][a-z0-9-]{0,47}`. A plain slug. Derive
@@ -23,7 +31,15 @@ under the session's directory:
    - A one-sentence goal.
    - Any traits, roles, teams, staff currently in effect.
 
-2. **Mint the first leaf — `<ts>-main.md`.**
+2. **Resume-by-name discipline.**
+   List existing session directories under `<root>sessions/`. If the
+   proposed name matches one exactly, you are resuming — skip to step
+   3 and append a fresh `<ts>-main.md` to the existing log. If the
+   proposed name looks similar to an existing one (typo distance),
+   ask the user to disambiguate: reuse the existing name, or pick a
+   clearly different one. A typo silently forks the log.
+
+3. **Compose the first leaf — `<ts>-main.md`.**
 
    ```
    <ts> = UTC YYYYMMDDhhmmss
@@ -48,23 +64,16 @@ under the session's directory:
    <one or two lines on what the eventual <ts>-delivery.md should look like>
    ```
 
-3. **Mint.**
-   ```
-   b3nd_receive { messages: [[
-     "<root>sessions/<session-name>/<ts>-main.md",
-     "<body>"
-   ]] }
-   ```
-
-4. **Active-session tracking.**
-   We'll address active session tracking once the design lands — the
-   parent agent has an open question round on it. For now, simply
-   surface the session name to the user and rely on them to pass it
-   to subsequent `/staff:note-session` and `/staff:close-session`
-   calls.
+4. **Mint.**
+   Write the file at `<root>sessions/<session-name>/<ts>-main.md`. If
+   a b3nd rig is wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>sessions/<session-name>/<ts>-main.md", "<body>" ]] }`.
 
 Report to the user: the session name, the path/URI of the minted
-`<ts>-main.md`, and what's next (note, close).
+`<ts>-main.md`, and what's next (note, close). The chief (or user)
+carries the session name forward — there is no stored "current
+session"; subsequent `/staff:note-session` and `/staff:close-session`
+calls must be passed the name explicitly.
 
 Disposition: a session has a clear end. If you can't picture what the
 delivery will look like, sharpen the goal before opening.
