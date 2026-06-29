@@ -188,6 +188,21 @@ To resume, address by name. Before opening a fresh session, search for
 similar existing names and disambiguate with the user — typos silently
 fork the log.
 
+### Proposals, not promotions
+
+Never write a proposed trait, role, play, team, or staff straight to
+`main.md`. Communicate the proposal to the builder; if it's worth
+persisting, capture it as a sibling note:
+
+```
+staff/{obj}/{name}/{ts}-proposal.md
+```
+
+The `{name}` may not exist yet — the proposal can be the first thing
+under it. Promotion to `main.md` is the builder's call, not yours.
+Multiple chiefs may propose against the same `{name}` over time; each
+`{ts}-proposal.md` stands alone.
+
 ### AVOID these errors when capturing STAFF Traits, Roles, Plays and Teams
 
 - Historical information belong to session updates, not on main.md files
