@@ -1,13 +1,14 @@
 {
   "name": "staff",
+  "description": "STAFF by BANDEIRA✶TECH — Claude as Chief of Staff for builders.",
   "owner": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
   "plugins": [
     {
       "name": "staff",
-      "source": ".",
-      "description": "STAFF — Claude as Chief of Staff. Traits + Plays over a b3nd rig.",
       "version": "0.1.0",
-      "license": "MIT"
+      "description": "STAFF by BANDEIRA✶TECH — Claude as Chief of Staff. Six small portable primitives (traits, roles, plays, teams, staff, sessions) for builders leading multi-agent work with their own vision and strengths. Local first; replicates over MCP or HTTP via b3nd if you wire a rig.",
+      "license": "MIT",
+      "source": "./"
     }
   ]
 }
