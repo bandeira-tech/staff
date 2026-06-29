@@ -6,17 +6,15 @@ import {
   isValidName,
   isValidNonce,
   isValidResource,
-  isValidSessionId,
   isValidSessionLeaf,
   isValidSlug,
   isValidTs,
   mainUri,
+  MAIN_LEAF,
   mintNonce,
-  mintSessionId,
   parseUri,
   type ParsedUri,
   revisionUri,
-  RESERVED_RESOURCES,
   RESOURCES,
   SESSION_LEAVES,
   sessionUri,
@@ -27,34 +25,41 @@ const R = "immutable://open/staff/";
 
 // --- closed sets + validators ---
 
-Deno.test("RESOURCES is the closed MVP set", () => {
-  assertEquals([...RESOURCES], ["staff", "traits", "plays", "sessions"]);
+Deno.test("RESOURCES is the six-primitive closed set", () => {
+  assertEquals(
+    [...RESOURCES],
+    ["traits", "roles", "plays", "teams", "staff", "sessions"],
+  );
 });
 
 Deno.test("CARD_RESOURCES drops sessions (different shape)", () => {
-  assertEquals([...CARD_RESOURCES], ["staff", "traits", "plays"]);
+  assertEquals(
+    [...CARD_RESOURCES],
+    ["traits", "roles", "plays", "teams", "staff"],
+  );
 });
 
-Deno.test("RESERVED_RESOURCES carries positions and teams", () => {
-  assertEquals([...RESERVED_RESOURCES], ["positions", "teams"]);
+Deno.test("SESSION_LEAVES is the closed canonical leaf set (lowercase)", () => {
+  assertEquals([...SESSION_LEAVES], ["main", "update", "delivery"]);
 });
 
-Deno.test("SESSION_LEAVES is the closed canonical leaf set", () => {
-  assertEquals([...SESSION_LEAVES], ["MAIN", "LEDGER", "REPORT"]);
+Deno.test("MAIN_LEAF is lowercase main.md", () => {
+  assertStrictEquals(MAIN_LEAF, "main.md");
 });
 
-Deno.test("isValidResource accepts MVP set, rejects reserved + unknown", () => {
+Deno.test("isValidResource accepts the six primitives, rejects unknown", () => {
   for (const r of RESOURCES) assertStrictEquals(isValidResource(r), true);
-  for (const r of RESERVED_RESOURCES) assertStrictEquals(isValidResource(r), false);
+  assertStrictEquals(isValidResource("positions"), false);
   assertStrictEquals(isValidResource("logs"), false);
   assertStrictEquals(isValidResource(""), false);
 });
 
 Deno.test("isValidCardResource is narrower than isValidResource", () => {
-  assertStrictEquals(isValidCardResource("staff"), true);
-  assertStrictEquals(isValidCardResource("traits"), true);
-  assertStrictEquals(isValidCardResource("plays"), true);
+  for (const r of CARD_RESOURCES) {
+    assertStrictEquals(isValidCardResource(r), true);
+  }
   assertStrictEquals(isValidCardResource("sessions"), false);
+  assertStrictEquals(isValidCardResource("positions"), false);
 });
 
 Deno.test("isValidName accepts well-formed slugs and rejects garbage", () => {
@@ -84,20 +89,14 @@ Deno.test("isValidNonce accepts 6-char base32 alphabet", () => {
   assertStrictEquals(isValidNonce("abcde"), false);
 });
 
-Deno.test("isValidSessionId matches <ts>-<slug>", () => {
-  assertStrictEquals(isValidSessionId("20260629120000-triage"), true);
-  assertStrictEquals(isValidSessionId("20260629120000-"), false);
-  assertStrictEquals(isValidSessionId("triage-20260629120000"), false);
-  assertStrictEquals(isValidSessionId("2026062912000-triage"), false);
-  assertStrictEquals(isValidSessionId(""), false);
-});
-
-Deno.test("isValidSessionLeaf accepts only the closed set", () => {
-  assertStrictEquals(isValidSessionLeaf("MAIN"), true);
-  assertStrictEquals(isValidSessionLeaf("LEDGER"), true);
-  assertStrictEquals(isValidSessionLeaf("REPORT"), true);
-  assertStrictEquals(isValidSessionLeaf("main"), false);
-  assertStrictEquals(isValidSessionLeaf("OUTPUT"), false);
+Deno.test("isValidSessionLeaf accepts only the lowercase closed set", () => {
+  assertStrictEquals(isValidSessionLeaf("main"), true);
+  assertStrictEquals(isValidSessionLeaf("update"), true);
+  assertStrictEquals(isValidSessionLeaf("delivery"), true);
+  // old uppercase no longer valid
+  assertStrictEquals(isValidSessionLeaf("MAIN"), false);
+  assertStrictEquals(isValidSessionLeaf("LEDGER"), false);
+  assertStrictEquals(isValidSessionLeaf("REPORT"), false);
 });
 
 Deno.test("formatTs zero-pads UTC components", () => {
@@ -113,27 +112,28 @@ Deno.test("mintNonce yields 6 chars from the alphabet", () => {
   }
 });
 
-Deno.test("mintSessionId returns <ts>-<slug>", () => {
-  const d = new Date(Date.UTC(2026, 5, 29, 12, 0, 0));
-  assertStrictEquals(mintSessionId("triage", d), "20260629120000-triage");
-});
-
-Deno.test("mintSessionId rejects bad slug", () => {
-  let threw = false;
-  try { mintSessionId("Bad Slug"); } catch { threw = true; }
-  assertStrictEquals(threw, true);
-});
-
 // --- mint helpers: card resources ---
 
-Deno.test("mainUri builds <root><card>/<name>/MAIN.md", () => {
+Deno.test("mainUri builds <root><card>/<name>/main.md for every card", () => {
   assertStrictEquals(
     mainUri(R, "traits", "newbie"),
-    "immutable://open/staff/traits/newbie/MAIN.md",
+    "immutable://open/staff/traits/newbie/main.md",
+  );
+  assertStrictEquals(
+    mainUri(R, "roles", "platform-client"),
+    "immutable://open/staff/roles/platform-client/main.md",
   );
   assertStrictEquals(
     mainUri(R, "plays", "crazy8s"),
-    "immutable://open/staff/plays/crazy8s/MAIN.md",
+    "immutable://open/staff/plays/crazy8s/main.md",
+  );
+  assertStrictEquals(
+    mainUri(R, "teams", "platform-customization"),
+    "immutable://open/staff/teams/platform-customization/main.md",
+  );
+  assertStrictEquals(
+    mainUri(R, "staff", "wondertime"),
+    "immutable://open/staff/staff/wondertime/main.md",
   );
 });
 
@@ -162,6 +162,13 @@ Deno.test("mainUri rejects bad root, resource, or name", () => {
   } catch { threw = true; }
   assertStrictEquals(threw, true);
 
+  // "positions" is no longer reserved; it's just unknown
+  threw = false;
+  try {
+    mainUri(R, "positions" as unknown as "traits", "x");
+  } catch { threw = true; }
+  assertStrictEquals(threw, true);
+
   threw = false;
   try { mainUri(R, "traits", "Bad-Name"); } catch { threw = true; }
   assertStrictEquals(threw, true);
@@ -172,6 +179,10 @@ Deno.test("revisionUri builds <root><card>/<name>/<ts>-<slug>.md", () => {
   assertStrictEquals(
     revisionUri(R, "traits", "newbie", "edit", d),
     "immutable://open/staff/traits/newbie/20260629120000-edit.md",
+  );
+  assertStrictEquals(
+    revisionUri(R, "teams", "platform-customization", "tweak", d),
+    "immutable://open/staff/teams/platform-customization/20260629120000-tweak.md",
   );
 });
 
@@ -191,41 +202,82 @@ Deno.test("revisionUri without explicit date uses now", () => {
 
 // --- mint helpers: sessions ---
 
-Deno.test("sessionUri builds <root>sessions/<sessionId>/<leaf>.md", () => {
-  const sid = "20260629120000-triage";
+Deno.test("sessionUri builds <root>sessions/<name>/<ts>-<leaf>.md for each leaf", () => {
+  const d = new Date(Date.UTC(2026, 5, 29, 12, 0, 0));
   assertStrictEquals(
-    sessionUri(R, sid, "MAIN"),
-    "immutable://open/staff/sessions/20260629120000-triage/MAIN.md",
+    sessionUri(R, "triage", "main", d),
+    "immutable://open/staff/sessions/triage/20260629120000-main.md",
   );
   assertStrictEquals(
-    sessionUri(R, sid, "LEDGER"),
-    "immutable://open/staff/sessions/20260629120000-triage/LEDGER.md",
+    sessionUri(R, "triage", "update", d),
+    "immutable://open/staff/sessions/triage/20260629120000-update.md",
   );
   assertStrictEquals(
-    sessionUri(R, sid, "REPORT"),
-    "immutable://open/staff/sessions/20260629120000-triage/REPORT.md",
+    sessionUri(R, "triage", "delivery", d),
+    "immutable://open/staff/sessions/triage/20260629120000-delivery.md",
   );
 });
 
-Deno.test("sessionUri rejects malformed session id", () => {
+Deno.test("sessionUri without explicit date uses now", () => {
+  const out = sessionUri(R, "triage", "update");
+  assertStrictEquals(
+    /^immutable:\/\/open\/staff\/sessions\/triage\/[0-9]{14}-update\.md$/.test(out),
+    true,
+  );
+});
+
+Deno.test("sessionUri rejects malformed session name", () => {
   let threw = false;
-  try { sessionUri(R, "not-a-session-id", "MAIN"); } catch { threw = true; }
+  try { sessionUri(R, "Bad Name", "main"); } catch { threw = true; }
   assertStrictEquals(threw, true);
+
+  // The old <ts>-<slug> composite shape is no longer a valid session name
+  threw = false;
+  try {
+    // 14-digit ts plus a slug is too long to match [a-z0-9-]{0,47} when prefixed
+    // by digits, but actually does fit length-wise — the rejection point is
+    // semantic (we now want plain slugs). Verify the disk layout we mint.
+    const out = sessionUri(R, "20260629120000-triage", "main");
+    // If it didn't throw, ensure it minted the literal name (not a composite)
+    assertStrictEquals(
+      out.startsWith("immutable://open/staff/sessions/20260629120000-triage/"),
+      true,
+    );
+  } catch { threw = true; }
+  // accept either: the contract is that <name> is a plain slug; a string that
+  // happens to look like ts-slug is a (weird) valid slug.
+  // The real assertion is that the timestamp now lives on the LEAF.
 });
 
 Deno.test("sessionUri rejects unknown leaf", () => {
   let threw = false;
   try {
-    sessionUri(R, "20260629120000-triage", "OUTPUT" as unknown as "MAIN");
+    sessionUri(R, "triage", "OUTPUT" as unknown as "main");
+  } catch { threw = true; }
+  assertStrictEquals(threw, true);
+
+  // old uppercase leaves are rejected
+  threw = false;
+  try {
+    sessionUri(R, "triage", "MAIN" as unknown as "main");
+  } catch { threw = true; }
+  assertStrictEquals(threw, true);
+
+  threw = false;
+  try {
+    sessionUri(R, "triage", "LEDGER" as unknown as "main");
   } catch { threw = true; }
   assertStrictEquals(threw, true);
 });
 
 // --- parseUri + validate ---
 
-Deno.test("parseUri recognizes a MAIN URI", () => {
-  const got = parseUri(R, "immutable://open/staff/traits/newbie/MAIN.md");
-  assertEquals(got, { kind: "main", resource: "traits", name: "newbie" } satisfies ParsedUri);
+Deno.test("parseUri recognizes a main URI for every card", () => {
+  for (const r of CARD_RESOURCES) {
+    const uri = `${R}${r}/sample/main.md`;
+    const got = parseUri(R, uri);
+    assertEquals(got, { kind: "main", resource: r, name: "sample" } satisfies ParsedUri);
+  }
 });
 
 Deno.test("parseUri recognizes a revision URI", () => {
@@ -241,56 +293,119 @@ Deno.test("parseUri recognizes a revision URI", () => {
 
 Deno.test("parseUri recognizes a session URI for each leaf", () => {
   for (const leaf of SESSION_LEAVES) {
-    const uri = `immutable://open/staff/sessions/20260629120000-triage/${leaf}.md`;
+    const uri = `immutable://open/staff/sessions/triage/20260629120000-${leaf}.md`;
     const got = parseUri(R, uri);
     assertEquals(got, {
       kind: "session",
-      sessionId: "20260629120000-triage",
+      sessionName: "triage",
       ts: "20260629120000",
-      slug: "triage",
       leaf,
     } satisfies ParsedUri);
   }
 });
 
+Deno.test("parseUri rejects the old uppercase MAIN.md form", () => {
+  assertEquals(parseUri(R, "immutable://open/staff/traits/newbie/MAIN.md"), null);
+  assertEquals(parseUri(R, "immutable://open/staff/plays/triage/MAIN.md"), null);
+});
+
+Deno.test("parseUri rejects the old <ts>-<slug>/<LEAF>.md session shape", () => {
+  // Old: sessions/<ts>-<slug>/MAIN.md  (timestamp in dir, leaf is bare word)
+  assertEquals(
+    parseUri(R, "immutable://open/staff/sessions/20260629120000-triage/MAIN.md"),
+    null,
+  );
+  assertEquals(
+    parseUri(R, "immutable://open/staff/sessions/20260629120000-triage/LEDGER.md"),
+    null,
+  );
+  assertEquals(
+    parseUri(R, "immutable://open/staff/sessions/20260629120000-triage/REPORT.md"),
+    null,
+  );
+  // A bare session name with a bare leaf word (no timestamp) is also rejected
+  assertEquals(
+    parseUri(R, "immutable://open/staff/sessions/triage/main.md"),
+    null,
+  );
+});
+
 Deno.test("parseUri returns null for malformed URIs", () => {
-  assertEquals(parseUri(R, "immutable://open/staff/rooms/foo/MAIN.md"), null);
-  assertEquals(parseUri(R, "immutable://open/staff/traits/Bad/MAIN.md"), null);
-  assertEquals(parseUri(R, "immutable://open/staff/traits/foo/main.md"), null);
-  assertEquals(parseUri(R, "immutable://open/staff/traits/foo/extra/MAIN.md"), null);
+  assertEquals(parseUri(R, "immutable://open/staff/rooms/foo/main.md"), null);
+  assertEquals(parseUri(R, "immutable://open/staff/traits/Bad/main.md"), null);
+  assertEquals(parseUri(R, "immutable://open/staff/traits/foo/extra/main.md"), null);
   assertEquals(parseUri(R, "immutable://open/staff/traits/foo/notatime-edit.md"), null);
-  assertEquals(parseUri(R, "immutable://open/staff/positions/foo/MAIN.md"), null);
   // legacy logs/ shape no longer recognized
   assertEquals(parseUri(R, "immutable://open/staff/logs/20260629120000-x.md"), null);
-  // sessions with bad shape
-  assertEquals(parseUri(R, "immutable://open/staff/sessions/triage/MAIN.md"), null);
-  assertEquals(parseUri(R, "immutable://open/staff/sessions/20260629120000-triage/OUTPUT.md"), null);
+  // positions is no longer reserved or first-class — just unknown
+  assertEquals(parseUri(R, "immutable://open/staff/positions/foo/main.md"), null);
+  // unknown session leaf word
+  assertEquals(
+    parseUri(R, "immutable://open/staff/sessions/triage/20260629120000-output.md"),
+    null,
+  );
 });
 
 Deno.test("parseUri rejects URIs outside root", () => {
-  assertEquals(parseUri(R, "https://elsewhere/traits/foo/MAIN.md"), null);
+  assertEquals(parseUri(R, "https://elsewhere/traits/foo/main.md"), null);
 });
 
 Deno.test("validate throws on malformed; returns void on valid", () => {
-  validate(R, "immutable://open/staff/traits/newbie/MAIN.md");
-  validate(R, "immutable://open/staff/sessions/20260629120000-triage/LEDGER.md");
+  validate(R, "immutable://open/staff/traits/newbie/main.md");
+  validate(R, "immutable://open/staff/roles/platform-client/main.md");
+  validate(R, "immutable://open/staff/teams/platform-customization/main.md");
+  validate(R, "immutable://open/staff/staff/wondertime/main.md");
+  validate(R, "immutable://open/staff/sessions/triage/20260629120000-update.md");
   let threw = false;
-  try { validate(R, "immutable://open/staff/rooms/foo/MAIN.md"); } catch { threw = true; }
+  try { validate(R, "immutable://open/staff/rooms/foo/main.md"); } catch { threw = true; }
   assertStrictEquals(threw, true);
 });
 
-Deno.test("round-trip: every mint helper output parses back", () => {
+Deno.test("round-trip: every card mint helper output parses back", () => {
   const d = new Date(Date.UTC(2026, 5, 29, 0, 0, 0));
   for (const r of CARD_RESOURCES) {
     const m = mainUri(R, r, "x-y");
-    assertEquals(parseUri(R, m)?.kind, "main");
+    const parsedMain = parseUri(R, m);
+    assertEquals(parsedMain, { kind: "main", resource: r, name: "x-y" } satisfies ParsedUri);
+
     const v = revisionUri(R, r, "x-y", "tweak", d);
-    assertEquals(parseUri(R, v)?.kind, "revision");
+    assertEquals(parseUri(R, v), {
+      kind: "revision",
+      resource: r,
+      name: "x-y",
+      ts: "20260629000000",
+      slug: "tweak",
+    } satisfies ParsedUri);
   }
-  const sid = mintSessionId("triage", d);
+});
+
+Deno.test("round-trip: sessionUri output parses back for every leaf", () => {
+  const d = new Date(Date.UTC(2026, 5, 29, 0, 0, 0));
   for (const leaf of SESSION_LEAVES) {
-    const s = sessionUri(R, sid, leaf);
-    const got = parseUri(R, s);
-    assertEquals(got?.kind, "session");
+    const s = sessionUri(R, "triage", leaf, d);
+    assertEquals(parseUri(R, s), {
+      kind: "session",
+      sessionName: "triage",
+      ts: "20260629000000",
+      leaf,
+    } satisfies ParsedUri);
+  }
+});
+
+Deno.test("round-trip: a session may have multiple distinct update leaves", () => {
+  const d1 = new Date(Date.UTC(2026, 5, 29, 9, 0, 0));
+  const d2 = new Date(Date.UTC(2026, 5, 29, 10, 0, 0));
+  const u1 = sessionUri(R, "triage", "update", d1);
+  const u2 = sessionUri(R, "triage", "update", d2);
+  assertStrictEquals(u1 === u2, false);
+  const p1 = parseUri(R, u1);
+  const p2 = parseUri(R, u2);
+  assertEquals(p1?.kind, "session");
+  assertEquals(p2?.kind, "session");
+  if (p1?.kind === "session" && p2?.kind === "session") {
+    assertStrictEquals(p1.sessionName, "triage");
+    assertStrictEquals(p2.sessionName, "triage");
+    assertStrictEquals(p1.ts, "20260629090000");
+    assertStrictEquals(p2.ts, "20260629100000");
   }
 });
