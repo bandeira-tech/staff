@@ -28,19 +28,17 @@ for `staff.bandeira.tech`. No bundled data; the framework is the
 product.
 
 The protocol module implements the closed MVP resource set
-`{ staff, traits, plays, logs }` per the spec at
-`docs/superpowers/specs/2026-06-29-staff-mvp-design.md`. `positions`
-and `teams` are reserved in the grammar. **Note for pass 2:** the
-resource list above evolved during pass 1 — `logs` became
-`sessions/{ts}-{session}/{MAIN,LEDGER,REPORT}.md`. The shipped
-protocol still uses the flat `logs/` shape. Reconciling sessions vs.
-logs is a pass-2 design decision.
+`{ staff, traits, plays, sessions }` per the spec at
+`docs/superpowers/specs/2026-06-29-staff-mvp-design.md`. Sessions
+carry a three-leaf shape (`MAIN`, `LEDGER`, `REPORT`) under a
+time-prefixed id `<ts>-<session>`. `positions` and `teams` are
+reserved in the grammar.
 
 Pass 2 will: wire the b3nd MCP rig
-(`plugin/.claude-plugin/staff.rig.ts`), add the web viewer, grow
-`positions/` and `teams/`, and reconcile the sessions/logs question.
+(`plugin/.claude-plugin/staff.rig.ts`), add the web viewer, and grow
+`positions/` and `teams/` helpers.
 
 - Spec: `docs/superpowers/specs/2026-06-29-staff-mvp-design.md`
 - Plan: `docs/superpowers/plans/2026-06-29-staff-mvp.md`
 - Site: `site/index.html` (opens with `open site/index.html`)
-- Tests: `deno task test` — 23 passing.
+- Tests: `deno task test` — 32 passing.

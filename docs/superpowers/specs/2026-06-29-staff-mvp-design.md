@@ -2,6 +2,11 @@
 
 > Ratified 2026-06-29. First-pass scope. Mirrors the shape of `b3nd-cc-chat`,
 > adapted to the primitives in `programs/staff/README.md`.
+>
+> **Amendment 2026-06-29 (post-implementation):** `logs` dropped from the
+> resource set; replaced by `sessions` with a richer three-leaf shape
+> (`MAIN`, `LEDGER`, `REPORT`). The amendment is consolidated into the
+> sections below — there is no "legacy logs" path in the shipped code.
 
 ## What STAFF is
 
@@ -35,23 +40,29 @@ not minted by MVP commands. They land in a later pass.
 
 ## The convention — URI grammar
 
-### Shape
+Two shapes — **cards** and **sessions**.
+
+### Cards (staff, traits, plays)
 
 ```
-<root>staff/<name>/MAIN.md                     identity card for a staff member
-<root>traits/<name>/MAIN.md                    canonical body of a trait
-<root>plays/<name>/MAIN.md                     canonical body of a play
-<root>logs/<ts>-<slug>.md                      append-only events
+<root><card>/<name>/MAIN.md                    identity card / canonical body
+<root><card>/<name>/<ts>-<slug>.md             sibling revision / note
 ```
 
-Optional sibling records (revisions, notes, transcripts) live next to the
-`MAIN.md` of their resource:
+Where `<card>` ∈ { `staff`, `traits`, `plays` }.
+
+### Sessions
 
 ```
-<root>traits/<name>/<ts>-<slug>.md
-<root>plays/<name>/<ts>-<slug>.md
-<root>staff/<name>/<ts>-<slug>.md
+<root>sessions/<ts>-<session>/MAIN.md          session identity (minted once)
+<root>sessions/<ts>-<session>/LEDGER.md        append-only journal
+<root>sessions/<ts>-<session>/REPORT.md        final synthesis
 ```
+
+`<ts>-<session>` is the session id (room-like, mirrors cc-chat's room
+naming). Leaves are a closed set: `MAIN | LEDGER | REPORT`. No
+free-form revisions under sessions in MVP — that's a pass-2 call once
+the operational pattern shows itself.
 
 ### Root
 
@@ -68,22 +79,25 @@ This mirrors cc-chat's `requireRoot()` discipline.
 
 | Segment      | Grammar                              | Notes                                  |
 |--------------|--------------------------------------|----------------------------------------|
-| `<resource>` | `staff` \| `traits` \| `plays` \| `logs` | closed MVP set (reserved: `positions`, `teams`) |
-| `<name>`     | `[a-z0-9][a-z0-9-]{0,47}`            | slug; same shape as cc-chat rooms     |
+| `<resource>` | `staff` \| `traits` \| `plays` \| `sessions` | closed MVP set (reserved: `positions`, `teams`) |
+| `<card>`     | `staff` \| `traits` \| `plays`        | the card-shaped subset                 |
+| `<name>`     | `[a-z0-9][a-z0-9-]{0,47}`            | card name                              |
+| `<session>`  | `[a-z0-9][a-z0-9-]{0,47}`            | session slug component                 |
 | `<ts>`       | `[0-9]{14}` (UTC `YYYYMMDDhhmmss`)   |                                        |
-| `<slug>`     | `[a-z0-9][a-z0-9-]{0,47}`            | leaf slug                              |
+| `<slug>`     | `[a-z0-9][a-z0-9-]{0,47}`            | leaf slug for revisions                |
+| session leaf | `MAIN` \| `LEDGER` \| `REPORT`        | closed set, all `.md`                  |
 | `MAIN.md`    | literal                              | the canonical card; minted once       |
 
 Malformed URIs are invisible (not noise), matching cc-chat semantics.
 
 ### Closed type set, conceptually
 
-| Resource | What it is                                                    | Body shape                       |
-|----------|---------------------------------------------------------------|----------------------------------|
-| staff    | A named chief-of-staff persona the user is operating through  | markdown card                    |
-| trait    | A focused, portable steering bit                              | markdown — one paragraph + cues  |
-| play     | A reusable workflow with phases, gates, outputs               | markdown — phases, IO            |
-| log      | An event in the operations stream                             | markdown                         |
+| Resource | What it is                                                    | Body shape                                |
+|----------|---------------------------------------------------------------|-------------------------------------------|
+| staff    | A named chief-of-staff persona the user is operating through  | markdown card                             |
+| trait    | A focused, portable steering bit                              | markdown — one paragraph + cues           |
+| play     | A reusable workflow with phases, gates, outputs               | markdown — phases, IO                     |
+| session  | A bounded unit of work                                        | three leaves: MAIN (intent), LEDGER (journal), REPORT (synthesis) |
 
 The grammar does not enforce body shape — bodies are markdown. The
 plugin's skill teaches authoring conventions.
@@ -101,13 +115,18 @@ they may grow manager-only sub-types; that's a later spec.
 - `./protocol` — `src/protocol.ts`. URI mint/parse/validate.
 - `.` (mod) — `src/mod.ts`. Re-exports protocol.
 
-Mint helpers (one per (resource, kind) cell):
+Mint helpers:
 
 ```
-mainUri(root, resource, name)               — <root><resource>/<name>/MAIN.md
-revisionUri(root, resource, name, slug, ts?) — <root><resource>/<name>/<ts>-<slug>.md
-logUri(root, slug, ts?)                     — <root>logs/<ts>-<slug>.md
+mainUri(root, cardResource, name)             — <root><card>/<name>/MAIN.md
+revisionUri(root, cardResource, name, slug, ts?) — <root><card>/<name>/<ts>-<slug>.md
+mintSessionId(slug, ts?)                       — returns "<ts>-<slug>"
+sessionUri(root, sessionId, leaf)              — <root>sessions/<sid>/<leaf>.md
 ```
+
+`cardResource` is type-narrowed to `CardResource = "staff" | "traits" | "plays"`.
+`sessions` is excluded from the card helpers; sessions have their own
+shape.
 
 Parsers / validators:
 
@@ -115,12 +134,15 @@ Parsers / validators:
 parseUri(root, uri): ParsedUri | null
 validate(root, uri): void           — throws if invalid
 isValidName(s), isValidSlug(s), isValidTs(s)
-isValidResource(s), RESOURCES, RESERVED_RESOURCES
+isValidResource(s), isValidCardResource(s)
+isValidSessionId(s), isValidSessionLeaf(s)
+RESOURCES, CARD_RESOURCES, RESERVED_RESOURCES, SESSION_LEAVES
 formatTs(date), mintNonce()
 ```
 
 `ParsedUri` is a discriminated union with variants
-`main | revision | log`, each carrying parsed segments.
+`main | revision | session`, each carrying parsed segments. Sessions
+carry both the composite `sessionId` and the decomposed `ts` + `slug`.
 
 The protocol module has **zero b3nd imports**. It's pure URI grammar.
 This isolates it from b3nd version churn.

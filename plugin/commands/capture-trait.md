@@ -28,9 +28,10 @@ A trait is short, atomic, and composable. One paragraph + 2–4 cues.
    ```
    b3nd_receive { messages: [[ "<root>traits/<name>/MAIN.md", "<body>" ]] }
    ```
-   Log it:
+   If you are inside a session, append the capture to that session's
+   ledger:
    ```
-   b3nd_receive { messages: [[ "<root>logs/<ts>-captured-trait-<name>.md",
+   b3nd_receive { messages: [[ "<root>sessions/<ts>-<session>/LEDGER.md",
                                "captured trait <name>" ]] }
    ```
 

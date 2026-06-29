@@ -34,7 +34,8 @@ outputs at the end.
    ```
    b3nd_receive { messages: [[ "<root>plays/<name>/MAIN.md", "<body>" ]] }
    ```
-   Log it under `<root>logs/`.
+   If you are inside a session, append the capture to the session
+   ledger.
 
 4. **MVP fallback:** print the URI and body, ask the user where to
    drop it.
