@@ -10,6 +10,14 @@ primitives.
 
 ## Steps
 
+0. **Resolve the root.**
+   - `$STAFF_ROOT` if set (env override).
+   - Otherwise, the nearest `.staff/` directory walking up from cwd.
+   - Otherwise, `~/.staff/` (the encouraged default — data compounds
+     across the builder's work).
+   Lazily `mkdir -p` the resolved root if writing for the first time.
+   Announce the resolved root on first use this turn.
+
 1. **Parse prose → primitive references.**
    Names are `[a-z0-9][a-z0-9-]{0,47}`. Quoted (`_newbie_`) or italicized
    forms both count. Note whether each reference is a trait or a role
@@ -17,9 +25,10 @@ primitives.
    "as the *platform-client* role").
 
 2. **Read each referenced body.**
-   - Pass 2: `b3nd_read([ "<root>traits/<name>/main.md", "<root>roles/<name>/main.md", ... ])`.
-   - MVP: read from the user's configured staff root on disk, or ask
-     the user to paste them.
+   Read from disk: `<root>traits/<name>/main.md`,
+   `<root>roles/<name>/main.md`, … If a b3nd rig is wired, the
+   equivalent is
+   `b3nd_read([ "<root>traits/<name>/main.md", "<root>roles/<name>/main.md", ... ])`.
 
 3. **Fold into your current behavior.**
    Treat each trait as additive steering and each role as a profile

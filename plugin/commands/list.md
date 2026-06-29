@@ -7,6 +7,14 @@ You are listing entries in the STAFF convention.
 
 ## Steps
 
+0. **Resolve the root.**
+   - `$STAFF_ROOT` if set (env override).
+   - Otherwise, the nearest `.staff/` directory walking up from cwd.
+   - Otherwise, `~/.staff/` (the encouraged default — data compounds
+     across the builder's work).
+   Lazily `mkdir -p` the resolved root if writing for the first time.
+   Announce the resolved root on first use this turn.
+
 1. **Parse `$ARGUMENTS`.**
    - `<resource>` ∈ { traits, roles, plays, teams, staff, sessions } —
      the six STAFF primitives.
@@ -14,18 +22,25 @@ You are listing entries in the STAFF convention.
      single entry.
 
 2. **List.**
-   - Pass 2:
-     - all entries: `b3nd_read([ "<root><resource>/?fn=ls" ])`
-     - revisions under a card: `b3nd_read([ "<root><card>/<name>/?fn=ls" ])`
-     - leaves of a session: `b3nd_read([ "<root>sessions/<name>/?fn=ls" ])`
-   - MVP: directory list the configured staff root on disk.
+   Primary: `ls <root><resource>/` on disk.
+   - revisions under a card: `ls <root><card>/<name>/`.
+   - leaves of a session: `ls <root>sessions/<name>/`.
+   If a b3nd rig is wired, the equivalent is
+   `b3nd_read([ "<root><resource>/?fn=ls" ])` (and the per-card or
+   per-session variants on the same shape).
 
 3. **Render.**
    - For card resources (`traits`, `roles`, `plays`, `teams`, `staff`):
      one line per entry, `<name>` + first line of `main.md`.
-   - For `sessions`: most recent 20 session directories, newest first
-     (use the most recent leaf timestamp as the sort key), `<name>` +
-     first line of the earliest `<ts>-main.md`.
+   - For `sessions`: group by recency, sorted by the most recent leaf
+     timestamp in each session directory (newest first). Render in two
+     distinct groups so the chief can orient:
+     - **Open** — sessions with no `<ts>-delivery.md` leaf yet.
+     - **Delivered** — sessions with at least one `<ts>-delivery.md`.
+     Show each as `<name>` + first line of the earliest
+     `<ts>-main.md`. Cap each group at the most recent ~20. The
+     listing is the orientation surface — there is no registry, per
+     the SKILL's "Sessions are logs, not state".
    - For a specific card `<name>`: `main.md` first, then sibling
      timestamped notes newest first.
    - For a specific session `<name>`: enumerate `<ts>-main.md`,
