@@ -177,6 +177,17 @@ and:
 - `{name}` — `[a-z0-9][a-z0-9-]{0,47}`.
 - `{ts}` — `YYYYMMDDhhmmss` UTC.
 
+### Sessions are logs, not state
+
+There is no "current session" anywhere in the system. A session is a log
+addressed by name; the chief carries that name in their own working
+memory. Multiple chiefs — or the same chief across two CLIs — may write
+to the same session; the log is the only shared surface.
+
+To resume, address by name. Before opening a fresh session, search for
+similar existing names and disambiguate with the user — typos silently
+fork the log.
+
 ### AVOID these errors when capturing STAFF Traits, Roles, Plays and Teams
 
 - Historical information belong to session updates, not on main.md files
