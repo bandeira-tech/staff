@@ -267,3 +267,25 @@ feasibility questions on production environment later.
 When dispatching agents it's preferrable that reference to traits and roles they fulfil
 are provided instead of a copy of the content or a version of it, instead give them
 the framework to read the relevant STAFF information and start from there.
+
+Concretely, the brief is a small manifest — URIs (or short names resolvable under the
+same root):
+
+```
+session: <root>sessions/triage-2026/
+role:    <root>roles/lead-qa/
+play:    <root>plays/bug-triage/
+traits:  <root>traits/skeptical/
+         <root>traits/newbie/
+
+Read your role, the play, and the session's latest main. Write your
+updates to <session>/<ts>-update.md.
+```
+
+The wrapping can be language-y if it reads better — the substance is the references.
+
+This assumes **STAFF-aware** subagents — they know how to dereference role/trait/play
+URIs and mint update leaves. For one-shot Explore agents, generic MCP tools, or anything
+not STAFF-aware, the chief translates: reads the references themselves, passes a task
+description without STAFF concepts, and writes the session updates on the subagent's
+behalf.
