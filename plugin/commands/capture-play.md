@@ -41,10 +41,14 @@ Phases, gates between them, expected outputs at the end.
    - <what the play produces>
    ```
 
-3. **Mint.**
-   Write the file at `<root>plays/<name>/main.md`. If a b3nd rig is
-   wired, the equivalent is
-   `b3nd_receive { messages: [[ "<root>plays/<name>/main.md", "<body>" ]] }`.
+3. **Communicate, then capture as proposal.**
+   Surface what you'd capture and why before writing anything. Never
+   write `main.md` directly — promotion is the builder's call. If they
+   want it persisted, write a proposal at
+   `<root>plays/<name>/<ts>-proposal.md`. If a b3nd rig is wired, the
+   equivalent is
+   `b3nd_receive { messages: [[ "<root>plays/<name>/<ts>-proposal.md", "<body>" ]] }`.
+   See the SKILL's "Proposals, not promotions".
 
 4. **Optionally log inside a session.**
    If a session name was passed in alongside the play capture, append

@@ -34,10 +34,14 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
    - <cue>
    ```
 
-3. **Mint.**
-   Write the file at `<root>traits/<name>/main.md`. If a b3nd rig is
-   wired, the equivalent is
-   `b3nd_receive { messages: [[ "<root>traits/<name>/main.md", "<body>" ]] }`.
+3. **Communicate, then capture as proposal.**
+   Surface what you'd capture and why before writing anything. Never
+   write `main.md` directly — promotion is the builder's call. If they
+   want it persisted, write a proposal at
+   `<root>traits/<name>/<ts>-proposal.md`. If a b3nd rig is wired, the
+   equivalent is
+   `b3nd_receive { messages: [[ "<root>traits/<name>/<ts>-proposal.md", "<body>" ]] }`.
+   See the SKILL's "Proposals, not promotions".
 
 4. **Optionally log inside a session.**
    If a session name was passed in alongside the trait capture, append

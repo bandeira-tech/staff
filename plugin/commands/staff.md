@@ -33,8 +33,10 @@ scripts; from here, you decide which of them apply.
    Map the prose onto the six primitives — `traits`, `roles`,
    `plays`, `teams`, `staff`, `sessions` — and the verbs that touch
    them:
-   - capture a `trait` / `role` / `play` / `team` / `staff` — write
-     a card's `main.md`.
+   - capture a `trait` / `role` / `play` / `team` / `staff` —
+     communicate the proposal and, if worth persisting, write
+     `<ts>-proposal.md` under the card (never `main.md` — see SKILL
+     "Proposals, not promotions").
    - compose — read traits/roles into the running context.
    - open / note / close a session — mint `<ts>-main.md`,
      `<ts>-update.md`, `<ts>-delivery.md` leaves under a session
@@ -73,7 +75,9 @@ scripts; from here, you decide which of them apply.
 5. **Keep the records.**
    Every meaningful state change belongs in a session update leaf.
    The synthesis at the end belongs in a delivery leaf. New
-   primitives the work surfaced belong in their card's `main.md`.
+   primitives the work surfaced are *proposed* via
+   `<ts>-proposal.md` under the card — never auto-promoted to
+   `main.md`.
 
 ## Guardrails
 
