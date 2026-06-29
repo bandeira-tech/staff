@@ -11,6 +11,14 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
 
 ## Steps
 
+0. **Resolve the root.**
+   - `$STAFF_ROOT` if set (env override).
+   - Otherwise, the nearest `.staff/` directory walking up from cwd.
+   - Otherwise, `~/.staff/` (the encouraged default — data compounds
+     across the builder's work).
+   Lazily `mkdir -p` the resolved root if writing for the first time.
+   Announce the resolved root on first use this turn.
+
 1. **Parse prose → trait shape.**
    From `$ARGUMENTS`, extract:
    - `<name>` — `[a-z0-9][a-z0-9-]{0,47}`. Derive from the prose
@@ -26,20 +34,18 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
    - <cue>
    ```
 
-3. **Mint** (pass 2 — once MCP is wired):
-   ```
-   b3nd_receive { messages: [[ "<root>traits/<name>/main.md", "<body>" ]] }
-   ```
-   If you are inside a session, append the capture as a new update leaf
-   on that session:
-   ```
-   b3nd_receive { messages: [[ "<root>sessions/<name>/<ts>-update.md",
-                               "captured trait <name>" ]] }
-   ```
+3. **Mint.**
+   Write the file at `<root>traits/<name>/main.md`. If a b3nd rig is
+   wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>traits/<name>/main.md", "<body>" ]] }`.
 
-4. **MVP fallback (no MCP yet):** print the URI you *would* mint and the
-   body, and ask the user where to drop the markdown on disk. The
-   product is the convention; the user chooses the storage seam.
+4. **Optionally log inside a session.**
+   If a session name was passed in alongside the trait capture, append
+   the event as a new update leaf on that session:
+   write `<root>sessions/<session-name>/<ts>-update.md` with body
+   `captured trait <name>` (or the b3nd_receive equivalent on the
+   same URI). If no session name was passed, skip this step — there
+   is no stored "current session" to fall back on.
 
 Disposition: meet-them-where-they-are. If the prose is rough, sharpen
 it lightly — don't enforce a starting point that isn't there. Don't
