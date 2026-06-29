@@ -9,7 +9,7 @@
     "@std/assert": "jsr:@std/assert@^1.0.15"
   },
   "tasks": {
-    "test": "deno test --allow-none tests/"
+    "test": "deno test tests/"
   },
   "compilerOptions": {
     "strict": true,
