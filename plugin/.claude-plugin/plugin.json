@@ -1,8 +1,14 @@
 {
   "name": "staff",
   "version": "0.1.0",
-  "description": "STAFF by BANDEIRA.TECH — Claude as Chief of Staff. Atomic primitives (Traits, Plays) over a b3nd rig. MVP ships skills + commands as prose; MCP wiring lands in pass 2.",
+  "description": "STAFF by BANDEIRA.TECH — Claude as Chief of Staff. Atomic primitives (Traits, Plays, Sessions) over a b3nd rig. Bundles a staff.rig.ts hosted via `bnd node --mcp` so the standard b3nd MCP verbs (b3nd_receive, b3nd_read, b3nd_status) just work. Requires `bnd` on PATH.",
   "author": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
   "license": "MIT",
-  "keywords": ["b3nd", "agents", "claude-code", "staff", "traits", "plays"]
+  "keywords": ["b3nd", "agents", "claude-code", "staff", "traits", "plays", "sessions"],
+  "mcpServers": {
+    "staff": {
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/.claude-plugin/mcp-server/staff-mcp.sh"]
+    }
+  }
 }
