@@ -1,36 +1,39 @@
 ---
-description: Append a line to the active session's LEDGER.md.
+description: Mint a new <ts>-update.md leaf on a session.
 argument-hint: <one-line note: decision, transition, blocker>
 ---
 
-You are appending to the **LEDGER** of the active session.
+You are appending an **update** leaf to a session in the STAFF
+convention. Each update is a NEW timestamped file — `<ts>-update.md`
+— under the session directory. No read-modify-write: each update
+stands alone.
 
 ## Steps
 
-1. **Resolve the active session id.**
-   Read `.staff.local.md` (YAML frontmatter, `active-session: <id>`).
-   If absent, surface that the user must `/staff:open-session` first
-   and stop.
+1. **Resolve the session name.**
+   - We'll address active-session tracking once the design lands;
+     for now expect the session name to be provided (by the user, or
+     by the dispatcher / chief of staff calling this command).
+   - If the session name is absent, surface that the user must
+     `/staff:open-session` first (or pass the name explicitly) and stop.
 
-2. **Compose the line.**
-   Format: `<HH:MM> <category> <body>` where `<category>` ∈
-   `decision | transition | blocker | note`. Default `note`.
+2. **Compose the body.**
+   Format the line as: `<HH:MM> <category> <body>` where `<category>` ∈
+   `decision | transition | blocker | note`. Default `note`. The body
+   of the update leaf can be that single line, or expand into a short
+   block if the update warrants it.
 
-3. **Append.**
+3. **Mint a new update leaf.**
    ```
    b3nd_receive { messages: [[
-     "<root>sessions/<session-id>/LEDGER.md",
-     "<full LEDGER body so far + new line>"
+     "<root>sessions/<session-name>/<ts>-update.md",
+     "<body>"
    ]] }
    ```
+   `<ts>` is fresh (UTC `YYYYMMDDhhmmss`) on every call — that's how
+   updates remain distinct files.
 
-   Note: pass-2 b3nd-save semantics are write-replace, not append. To
-   preserve history, read the existing body first, append the new
-   line, then write the whole thing back. (Pass-3 may add a true
-   append primitive; until then, read-modify-write.)
+4. **Echo the update** to the user. Do not enumerate prior updates.
 
-4. **Echo the appended line** to the user. Do not restate the entire
-   ledger.
-
-Disposition: one line per state change. Terse. The ledger is for
+Disposition: one update per state change. Terse. Updates are for
 audit, not for narration.

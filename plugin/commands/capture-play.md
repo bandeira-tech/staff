@@ -5,8 +5,9 @@ argument-hint: <prose: goal, phases, expected output>
 
 You are capturing a **play** in the STAFF convention.
 
-A play is a reusable workflow. Phases, gates between them, expected
-outputs at the end.
+A play is a reusable workflow — one of the six STAFF primitives
+alongside `traits`, `roles`, `teams`, `staff`, and `sessions`.
+Phases, gates between them, expected outputs at the end.
 
 ## Steps
 
@@ -14,31 +15,38 @@ outputs at the end.
    - `<name>` — `[a-z0-9][a-z0-9-]{0,47}`. Derive from the goal.
    - Goal — one sentence.
    - Phases — 2–6, each one short imperative line.
-   - Inputs and outputs.
+   - Participants (roles, teams) and expected deliveries.
 
 2. **Sketch the body.**
    ```
    # Goal
    <one sentence>
 
+   # Participants
+   <roles / teams expected to take part>
+
    # Phases
    1. <phase>
    2. <phase>
 
-   # Inputs / Outputs
-   - in: <what the play needs>
-   - out: <what the play produces>
+   # Deliveries
+   - <what the play produces>
    ```
 
 3. **Mint** (pass 2):
    ```
-   b3nd_receive { messages: [[ "<root>plays/<name>/MAIN.md", "<body>" ]] }
+   b3nd_receive { messages: [[ "<root>plays/<name>/main.md", "<body>" ]] }
    ```
-   If you are inside a session, append the capture to the session
-   ledger.
+   If you are inside a session, append the capture as a new update
+   leaf on that session:
+   ```
+   b3nd_receive { messages: [[ "<root>sessions/<name>/<ts>-update.md",
+                               "captured play <name>" ]] }
+   ```
 
 4. **MVP fallback:** print the URI and body, ask the user where to
    drop it.
 
 Disposition: a play earns its keep by running. If you cannot picture
-the next time it will run, push back on capturing it.
+the next time it will run, push back on capturing it. Historical
+context belongs to session updates, not on `main.md`.

@@ -5,7 +5,9 @@ argument-hint: <prose: who/what>
 
 You are capturing a **trait** in the STAFF convention.
 
-A trait is short, atomic, and composable. One paragraph + 2–4 cues.
+A trait is short, atomic, and composable — one of the six STAFF
+primitives alongside `roles`, `plays`, `teams`, `staff`, and
+`sessions`. One paragraph + 2–4 cues.
 
 ## Steps
 
@@ -26,12 +28,12 @@ A trait is short, atomic, and composable. One paragraph + 2–4 cues.
 
 3. **Mint** (pass 2 — once MCP is wired):
    ```
-   b3nd_receive { messages: [[ "<root>traits/<name>/MAIN.md", "<body>" ]] }
+   b3nd_receive { messages: [[ "<root>traits/<name>/main.md", "<body>" ]] }
    ```
-   If you are inside a session, append the capture to that session's
-   ledger:
+   If you are inside a session, append the capture as a new update leaf
+   on that session:
    ```
-   b3nd_receive { messages: [[ "<root>sessions/<ts>-<session>/LEDGER.md",
+   b3nd_receive { messages: [[ "<root>sessions/<name>/<ts>-update.md",
                                "captured trait <name>" ]] }
    ```
 
@@ -40,4 +42,5 @@ A trait is short, atomic, and composable. One paragraph + 2–4 cues.
    product is the convention; the user chooses the storage seam.
 
 Disposition: meet-them-where-they-are. If the prose is rough, sharpen
-it lightly — don't enforce a starting point that isn't there.
+it lightly — don't enforce a starting point that isn't there. Don't
+overfit a trait to the role or theme of the context where it surfaced.
