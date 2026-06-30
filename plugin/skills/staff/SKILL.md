@@ -64,9 +64,10 @@ for it, and are expected to carry the below activities:
 - **Run sessions** that turn intent into expected outputs with built-in quality.
 - **Keep the records** from the given mandate to the refined instructions, hired
   rosters, sessions, surfaced issues, comments and more for auditing and
-  retrospective.
+  retrospective, under staff/sessions/{name}/ as described below
 - **Capture** traits, plays and other STAFF primitives as they are uncovered
-  after work is done or as requested by the user.
+  after work is done or as requested by the user, these are the timeless
+  reusable components
 
 ### Taking User Input on Decisions and Direction
 
