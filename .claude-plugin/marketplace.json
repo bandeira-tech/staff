@@ -8,7 +8,7 @@
       "version": "0.1.0",
       "description": "STAFF by BANDEIRA✶TECH — Claude as Chief of Staff. Six small portable primitives (traits, roles, plays, teams, staff, sessions) for builders leading multi-agent work with their own vision and strengths. Local first; replicates over MCP or HTTP via b3nd if you wire a rig.",
       "license": "MIT",
-      "source": "./"
+      "source": "./plugin"
     }
   ]
 }

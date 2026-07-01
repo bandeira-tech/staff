@@ -36,11 +36,13 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
 
 3. **Communicate, then capture as proposal.**
    Surface what you'd capture and why before writing anything. Never
-   write `main.md` directly — promotion is the builder's call. If they
-   want it persisted, write a proposal at
-   `<root>traits/<name>/<ts>-proposal.md`. If a b3nd rig is wired, the
-   equivalent is
-   `b3nd_receive { messages: [[ "<root>traits/<name>/<ts>-proposal.md", "<body>" ]] }`.
+   write into `canon/` directly — promotion is the builder's call. If
+   they want it persisted, write a proposal subtree at
+   `<root>proposal/traits/<name>/<ts>/main.md` (the prose body — and
+   add a `gates/` file beside it if a cue earns being an executable
+   checkpoint; see the SKILL's "Gates and cast"). If a b3nd rig is
+   wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>proposal/traits/<name>/<ts>/main.md", "<body>" ]] }`.
    See the SKILL's "Proposals, not promotions".
 
 4. **Optionally log inside a session.**

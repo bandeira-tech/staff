@@ -170,13 +170,17 @@ bug.
 ### The grammar
 
 ```
-{root}/traits/{name}/main.md
-{root}/roles/{name}/main.md
-{root}/plays/{name}/main.md
-{root}/teams/{name}/main.md
-{root}/staff/{name}/main.md
-{root}/sessions/{name}/{ts}-{main,update,delivery}.md
+{root}/canon/{kind}/{name}/           — a canonized primitive
+{root}/proposal/{kind}/{name}/{ts}/   — a proposed primitive (timestamped)
+{root}/sessions/{name}/               — a session log
 ```
+
+A primitive directory holds a prose `main.md` **and/or** `gates/*.md`
+(executable checkpoints) **and/or** `cast/{name}/` (a roster) — see *Gates and
+cast* below; all three are optional and additive. A session holds
+`{ts}-{main,update,delivery}.md` leaves (optionally grouped under
+`cast/{member}/`), plus `meta`, an `assets/` folder for side-effect files, and
+its own acceptance `gates/`. `{kind}` is one of
 
 where
 
@@ -207,7 +211,7 @@ listing. Nothing else:
 
 | Action | What you do |
 |--------|-------------|
-| capture trait/role/play/team/staff | write `{root}/{kind}/{name}/{ts}-proposal.md` (see *Proposals, not promotions*) |
+| capture trait/role/play/team/staff | write under `{root}/proposal/{kind}/{name}/{ts}/` (see *Proposals, not promotions*) |
 | read one | read the file at its path |
 | list a kind | list the directories under `{root}/{kind}/` |
 | open a session | write `{root}/sessions/{name}/{ts}-main.md` |
@@ -231,17 +235,20 @@ and disambiguate with the user — typos silently fork the log.
 
 ### Proposals, not promotions
 
-Never write a proposed trait, role, play, team, or staff straight to `main.md`.
-Communicate the proposal to the builder; if it's worth persisting, capture it as a
-sibling note:
+Never write a proposed trait, role, play, team, or staff into `canon/`.
+Communicate the proposal to the builder; if it's worth persisting, capture it as
+its own timestamped subtree under `proposal/`:
 
 ```
-{root}/{kind}/{name}/{ts}-proposal.md
+{root}/proposal/{kind}/{name}/{ts}/     (meta, main.md and/or gates/, …)
 ```
 
-The `{name}` may not exist yet — the proposal can be the first thing under it.
-Promotion to `main.md` is the builder's call, not yours. Multiple chiefs may
-propose against the same `{name}` over time; each `{ts}-proposal.md` stands alone.
+The `{name}` may not exist under `canon/` yet — the proposal can be the first
+thing anywhere for that name. Promotion is the builder's call, not yours: it
+materializes `{root}/canon/{kind}/{name}/` from a chosen proposal. Multiple
+chiefs may propose against the same `{name}` over time; each `{ts}/` subtree
+stands alone. This canon-vs-proposal split is the **one structural change** the
+layout requires (see *Gates and cast → what actually has to change*).
 
 ### AVOID these errors when capturing traits, roles, plays, and teams
 
@@ -251,10 +258,15 @@ propose against the same `{name}` over time; each `{ts}-proposal.md` stands alon
 
 ### Body shapes and examples
 
+These are **prose bodies** — `main.md` under the primitive. Prose stays
+first-class: paths below elide the `canon/` bucket for brevity (a canonized
+primitive lives at `{root}/canon/{kind}/{name}/main.md`). Any of these bodies
+can also — or instead — be expressed as gates; see *Gates and cast*.
+
 Traits
 
 ```
-{root}/traits/skeptical/main.md
+{root}/canon/traits/skeptical/main.md
 
 You don't trust work being presented to you, you don't take tech talk,
 you always look for gates that make sure you are not receiving empty
@@ -317,6 +329,51 @@ Generate concepts, raise options and then validate and report back.
 Then focus on delivery that tests the concept first and raise
 feasibility questions on production environment later.
 ```
+
+### Gates and cast — the executable overlay (additive)
+
+The bodies above are prose, and prose stays first-class: **keep your text, keep
+writing text.** On top of it — incrementally, never all at once — a primitive's
+steering can be expressed as **gates**: checkpoints that state what must hold for
+work to move ahead. A gate is a markdown file under `gates/`, a small Gherkin
+scenario carrying its own state:
+
+```
+{root}/canon/traits/{name}/gates/{gate}.md
+
+# (MANDATORY GATE) <what it guards>
+Gate State is OPEN by default and CLOSED when the conditions below hold.
+You MUST NOT declare success while this gate is CLOSED.
+Scenario: <the check>
+  Given <context>
+  When  <trigger — also encodes sequence, e.g. "after the brief">
+  Then  the Gate is CLOSED unless <the requirement is met>.
+```
+
+A primitive is a **family of gates**: one broad `(MANDATORY GATE)` stating the
+outcome it requires, plus optional self-scoping `(MECHANISM GATE)`s (each scoped
+by its `Given` to a surface or context). Because a role is just its gates,
+referencing a role and writing a gate inline are the same thing by-reference
+vs by-value.
+
+**Cast** is the only non-gate component — *who* is in the flow: `cast/{name}/`
+on teams (a standing roster) and on sessions (participants). A cast member points
+at a role (`role.ref` — a one-line `file://…/canon/roles/{name}` locator) and/or
+carries its own inline `gates/`; a session participant may be just a name with
+its authored leaves (the chief is such a member). No `count` or `seniority`
+fields — a qualifier lives in the **name** and in **gates**, never in a dangling
+ref to something that doesn't exist.
+
+**What actually has to change — and what doesn't.** The *one* real migration
+from the old layout is the bucket split: canonized primitives move under
+`canon/`, proposals under `proposal/{…}/{ts}/`. Everything else is **additive**.
+A `main.md` prose body remains valid — keep it, grow it, and add a `gates/` file
+beside it only when a checkpoint earns being executable; add a `cast/` when a
+team or session wants an explicit roster. A reader handles both formats with no
+real branching: read `main.md` for the prose, `gates/` for the checkpoints,
+`cast/` for the roster — any subset may be present, and a primitive with only
+prose is as legitimate as one that is all gates. Adopt gates where they buy you
+enforcement; leave prose where it reads better.
 
 ### Dispatching agents to work on the session
 

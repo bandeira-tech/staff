@@ -25,10 +25,11 @@ primitives.
    "as the *platform-client* role").
 
 2. **Read each referenced body.**
-   Read from disk: `<root>traits/<name>/main.md`,
-   `<root>roles/<name>/main.md`, … If a b3nd rig is wired, the
-   equivalent is
-   `b3nd_read([ "<root>traits/<name>/main.md", "<root>roles/<name>/main.md", ... ])`.
+   Read the canon primitive under `<root>canon/traits/<name>/` and
+   `<root>canon/roles/<name>/` — a `main.md` prose body **and/or**
+   `gates/*.md` (a primitive may be prose, gates, or both; read
+   whichever are present). If a b3nd rig is wired, the equivalent is
+   `b3nd_read([ "<root>canon/traits/<name>/main.md", "<root>canon/traits/<name>/gates/?fn=ls", "<root>canon/roles/<name>/main.md", ... ])`.
 
 3. **Fold into your current behavior.**
    Treat each trait as additive steering and each role as a profile
