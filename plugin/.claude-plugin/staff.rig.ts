@@ -5,8 +5,14 @@
  * Wires an FsStore-backed b3nd rig over the staff URI namespace
  * (`immutable://open/staff/**`). Modeled on the cc-chat rig.
  *
- *   bnd node ./staff.rig.ts --http=7373
- *   bnd node ./staff.rig.ts --mcp
+ *   bnd node ./staff.rig.ts --http=7373    # no CORS — use for tools, not browsers
+ *   bnd node ./staff.rig.ts --mcp          # MCP stdio (plugin entry point)
+ *   deno run --allow-net --allow-read --allow-write --allow-env \
+ *     ./serve-http.ts                      # HTTP + CORS for any localhost origin
+ *
+ * Use `serve-http.ts` whenever a browser (or any non-rig origin) needs
+ * to talk to the rig — `bnd node --http` ships no CORS and a browser
+ * fetch from a different origin will be blocked.
  *
  * Data dir resolves in this order:
  *   1. $STAFF_DATA_DIR
