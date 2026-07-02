@@ -4,6 +4,7 @@ import { add, addGate, resolveKind } from "../src/cli/verbs/add.ts";
 import { assertRejects, assertThrows } from "@std/assert";
 import { list } from "../src/cli/verbs/list.ts";
 import { readPath } from "../src/cli/verbs/read.ts";
+import { promote } from "../src/cli/verbs/promote.ts";
 
 Deno.test("loadStaffRig: bundled rig loads and answers reads", async () => {
   const tmp = await Deno.makeTempDir();
@@ -101,5 +102,45 @@ Deno.test("readPath returns the body; misses throw", async () => {
     () => readPath("canon/traits/skeptical/main.md", {}),
     Error,
     "not found",
+  );
+});
+
+Deno.test("promote: latest proposal subtree materializes canon", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
+  const later = new Date(Date.UTC(2026, 6, 2, 10, 0, 0));
+  await add({ kindArg: "trait", name: "skeptical", prose: "v2", now: later });
+  await addGate({
+    path: "trait/skeptical/no-empty-promises",
+    prose: "gate body",
+    now: later,
+  });
+
+  const res = await promote("trait", "skeptical", undefined, {});
+  assertEquals(res.ts, "20260702100000");
+  assertEquals(res.written.sort(), [
+    "immutable://open/staff/canon/traits/skeptical/gates/no-empty-promises.md",
+    "immutable://open/staff/canon/traits/skeptical/main.md",
+  ]);
+  assertEquals(await readPath("canon/traits/skeptical/main.md", {}), "v2");
+  assertEquals(await list("trait", {}), [
+    { name: "skeptical", canon: true, proposals: 2 },
+  ]);
+});
+
+Deno.test("promote: explicit ts, and loud misses", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
+  const res = await promote("trait", "skeptical", "20260702093000", {});
+  assertEquals(res.ts, "20260702093000");
+  await assertRejects(
+    () => promote("trait", "skeptical", "20990101000000", {}),
+    Error,
+    "candidates",
+  );
+  await assertRejects(
+    () => promote("trait", "ghost", undefined, {}),
+    Error,
+    "no proposals",
   );
 });

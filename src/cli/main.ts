@@ -13,6 +13,7 @@ import { proseFrom } from "./prose.ts";
 import { rigInfo, setRig } from "./verbs/rig.ts";
 import { list } from "./verbs/list.ts";
 import { readPath } from "./verbs/read.ts";
+import { promote } from "./verbs/promote.ts";
 
 const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
 
@@ -105,6 +106,15 @@ async function dispatch(argv: string[]): Promise<number> {
     case "read": {
       if (!args[0]) throw new Error("usage: staff read <path>");
       console.log(await readPath(args[0], { rig }));
+      return 0;
+    }
+    case "promote": {
+      if (!args[0] || !args[1]) {
+        throw new Error("usage: staff promote <kind> <name> [<ts>]");
+      }
+      const res = await promote(args[0], args[1], args[2], { rig });
+      console.log(`✓ promoted ${args[0]}/${args[1]} @ ${res.ts}`);
+      for (const uri of res.written) console.log(`  ${uri}`);
       return 0;
     }
     default: {
