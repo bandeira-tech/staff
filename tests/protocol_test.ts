@@ -11,11 +11,13 @@ import {
   KIND_ALIASES,
   KINDS,
   mintNonce,
+  parseUri,
   proposalUri,
   SESSION_LEAVES,
   sessionAssetUri,
   sessionGateUri,
   sessionLeafUri,
+  validate,
 } from "../src/protocol.ts";
 
 const ROOT = "immutable://open/staff/";
@@ -121,4 +123,109 @@ Deno.test("sessionGateUri and sessionAssetUri", () => {
   );
   assertThrows(() => sessionAssetUri(ROOT, "triage-2026", "../escape"));
   assertThrows(() => sessionAssetUri(ROOT, "triage-2026", "/abs"));
+});
+
+Deno.test("parseUri: canon shapes round-trip", () => {
+  assertEquals(
+    parseUri(ROOT, "immutable://open/staff/canon/traits/skeptical/main.md"),
+    { at: "canon", kind: "traits", name: "skeptical", leaf: { type: "main" } },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/canon/traits/skeptical/gates/no-empty-promises.md",
+    ),
+    {
+      at: "canon",
+      kind: "traits",
+      name: "skeptical",
+      leaf: { type: "gate", gate: "no-empty-promises" },
+    },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/canon/teams/platform/players/lead-qa/role.ref",
+    ),
+    {
+      at: "canon",
+      kind: "teams",
+      name: "platform",
+      leaf: { type: "player-ref", player: "lead-qa" },
+    },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/canon/teams/platform/players/lead-qa/gates/coverage.md",
+    ),
+    {
+      at: "canon",
+      kind: "teams",
+      name: "platform",
+      leaf: { type: "player-gate", player: "lead-qa", gate: "coverage" },
+    },
+  );
+});
+
+Deno.test("parseUri: proposal carries ts", () => {
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/proposal/plays/bug-triage/20260702093000/main.md",
+    ),
+    {
+      at: "proposal",
+      kind: "plays",
+      name: "bug-triage",
+      ts: "20260702093000",
+      leaf: { type: "main" },
+    },
+  );
+});
+
+Deno.test("parseUri: session shapes", () => {
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/sessions/triage-2026/20260702093000-update.md",
+    ),
+    { at: "session", session: "triage-2026", ts: "20260702093000", leaf: "update" },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/sessions/triage-2026/players/lead-qa/20260702093000-delivery.md",
+    ),
+    {
+      at: "session",
+      session: "triage-2026",
+      ts: "20260702093000",
+      leaf: "delivery",
+      player: "lead-qa",
+    },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/sessions/triage-2026/gates/all-p0s-closed.md",
+    ),
+    { at: "session-gate", session: "triage-2026", gate: "all-p0s-closed" },
+  );
+  assertEquals(
+    parseUri(
+      ROOT,
+      "immutable://open/staff/sessions/triage-2026/assets/report/summary.html",
+    ),
+    { at: "session-asset", session: "triage-2026", path: "report/summary.html" },
+  );
+});
+
+Deno.test("parseUri: malformed is invisible (null), validate throws", () => {
+  assertEquals(parseUri(ROOT, "immutable://open/other/x/main.md"), null);
+  assertEquals(parseUri(ROOT, `${ROOT}canon/nope/x/main.md`), null);
+  assertEquals(parseUri(ROOT, `${ROOT}canon/traits/x/other.md`), null);
+  assertEquals(parseUri(ROOT, `${ROOT}proposal/traits/x/2026/main.md`), null);
+  assertEquals(parseUri(ROOT, `${ROOT}sessions/x/20260702093000-report.md`), null);
+  assertThrows(() => validate(ROOT, `${ROOT}canon/nope/x/main.md`));
 });

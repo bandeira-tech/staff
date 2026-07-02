@@ -212,3 +212,96 @@ export function sessionAssetUri(
   }
   return `${root}sessions/${session}/assets/${path}`;
 }
+
+export type ParsedUri =
+  | { at: "canon"; kind: Kind; name: string; leaf: PrimitiveLeaf }
+  | { at: "proposal"; kind: Kind; name: string; ts: string; leaf: PrimitiveLeaf }
+  | { at: "session"; session: string; ts: string; leaf: SessionLeaf; player?: string }
+  | { at: "session-gate"; session: string; gate: string }
+  | { at: "session-asset"; session: string; path: string };
+
+function parsePrimitiveLeaf(parts: string[]): PrimitiveLeaf | null {
+  if (parts.length === 1 && parts[0] === "main.md") return { type: "main" };
+  if (parts.length === 2 && parts[0] === "gates") {
+    const m = GATE_LEAF_RE.exec(parts[1]);
+    return m ? { type: "gate", gate: m[1] } : null;
+  }
+  if (parts[0] === "players" && parts.length >= 3 && isValidName(parts[1])) {
+    if (parts.length === 3 && parts[2] === "role.ref") {
+      return { type: "player-ref", player: parts[1] };
+    }
+    if (parts.length === 4 && parts[2] === "gates") {
+      const m = GATE_LEAF_RE.exec(parts[3]);
+      return m ? { type: "player-gate", player: parts[1], gate: m[1] } : null;
+    }
+  }
+  return null;
+}
+
+/** Parse a staff URI under `root`. Malformed → null (invisible). */
+export function parseUri(root: string, uri: string): ParsedUri | null {
+  requireRoot(root);
+  if (!uri.startsWith(root)) return null;
+  const parts = uri.slice(root.length).split("/");
+  const head = parts[0];
+
+  if (head === "canon" || head === "proposal") {
+    const kind = parts[1];
+    const name = parts[2];
+    if (!isValidKind(kind) || !isValidName(name)) return null;
+    if (head === "canon") {
+      const leaf = parsePrimitiveLeaf(parts.slice(3));
+      return leaf ? { at: "canon", kind, name, leaf } : null;
+    }
+    const ts = parts[3];
+    if (!isValidTs(ts)) return null;
+    const leaf = parsePrimitiveLeaf(parts.slice(4));
+    return leaf ? { at: "proposal", kind, name, ts, leaf } : null;
+  }
+
+  if (head === "sessions") {
+    const session = parts[1];
+    if (!isValidName(session)) return null;
+    const rest = parts.slice(2);
+    if (rest.length === 1) {
+      const m = SESSION_LEAF_RE.exec(rest[0]);
+      return m
+        ? { at: "session", session, ts: m[1], leaf: m[2] as SessionLeaf }
+        : null;
+    }
+    if (rest[0] === "players" && rest.length === 3 && isValidName(rest[1])) {
+      const m = SESSION_LEAF_RE.exec(rest[2]);
+      return m
+        ? {
+          at: "session",
+          session,
+          ts: m[1],
+          leaf: m[2] as SessionLeaf,
+          player: rest[1],
+        }
+        : null;
+    }
+    if (rest[0] === "gates" && rest.length === 2) {
+      const m = GATE_LEAF_RE.exec(rest[1]);
+      return m ? { at: "session-gate", session, gate: m[1] } : null;
+    }
+    if (rest[0] === "assets" && rest.length >= 2) {
+      const path = rest.slice(1).join("/");
+      if (!ASSET_PATH_RE.test(path)) return null;
+      if (path.split("/").some((seg) => seg === "." || seg === "..")) {
+        return null;
+      }
+      return { at: "session-asset", session, path };
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/** Throw if `uri` is not a well-formed staff URI under `root`. */
+export function validate(root: string, uri: string): void {
+  if (parseUri(root, uri) === null) {
+    throw new Error(`invalid staff URI under ${root}: ${uri}`);
+  }
+}
