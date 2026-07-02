@@ -63,3 +63,7 @@ Phases, gates between them, expected outputs at the end.
 Disposition: a play earns its keep by running. If you cannot picture
 the next time it will run, push back on capturing it. Historical
 context belongs to session updates, not on `main.md`.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

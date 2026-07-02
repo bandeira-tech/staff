@@ -56,3 +56,7 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
 Disposition: meet-them-where-they-are. If the prose is rough, sharpen
 it lightly — don't enforce a starting point that isn't there. Don't
 overfit a trait to the role or theme of the context where it surfaced.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

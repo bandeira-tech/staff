@@ -77,3 +77,7 @@ calls must be passed the name explicitly.
 
 Disposition: a session has a clear end. If you can't picture what the
 delivery will look like, sharpen the goal before opening.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

@@ -64,3 +64,7 @@ more deliveries; closing is "the work earned a synthesis".
 Disposition: a session that doesn't produce a delivery failed to
 close — flag that and either rerun the synthesis or mark it
 unfinished explicitly.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

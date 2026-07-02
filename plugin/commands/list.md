@@ -27,7 +27,7 @@ You are listing entries in the STAFF convention.
    - proposals for a card: `ls <root>proposal/<card>/<name>/` — one
      `<ts>/` subtree per pending proposal.
    - leaves of a session: `ls <root>sessions/<name>/` (leaves may be
-     grouped under `cast/<member>/`).
+     grouped under `players/<member>/`).
    If a b3nd rig is wired, the equivalent is
    `b3nd_read([ "<root>canon/<resource>/?fn=ls" ])` (and the proposal
    or per-session variants on the same shape).
@@ -41,7 +41,7 @@ You are listing entries in the STAFF convention.
      timestamp in each session directory (newest first). Render in two
      distinct groups so the chief can orient:
      - **Open** — sessions with no `<ts>-delivery.md` leaf anywhere
-       (session root or under any `cast/<member>/`).
+       (session root or under any `players/<member>/`).
      - **Delivered** — sessions with at least one `<ts>-delivery.md`.
      Show each as `<name>` + its mandate (from `meta`, else the first
      `<ts>-main.md`). Cap each group at the most recent ~20. The
@@ -52,6 +52,10 @@ You are listing entries in the STAFF convention.
      `<root>proposal/<card>/<name>/` (newest `<ts>/` first).
    - For a specific session `<name>`: enumerate its `<ts>-main.md`,
      `<ts>-update.md`, `<ts>-delivery.md` leaves (at the root or under
-     `cast/<member>/`) in timestamp order.
+     `players/<member>/`) in timestamp order.
 
 Disposition: terse. The list is for orientation, not for reading.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

@@ -176,10 +176,10 @@ bug.
 ```
 
 A primitive directory holds a prose `main.md` **and/or** `gates/*.md`
-(executable checkpoints) **and/or** `cast/{name}/` (a roster) — see *Gates and
-cast* below; all three are optional and additive. A session holds
+(executable checkpoints) **and/or** `players/{name}/` (a roster) — see *Gates and
+players* below; all three are optional and additive. A session holds
 `{ts}-{main,update,delivery}.md` leaves (optionally grouped under
-`cast/{member}/`), plus `meta`, an `assets/` folder for side-effect files, and
+`players/{member}/`), plus `meta`, an `assets/` folder for side-effect files, and
 its own acceptance `gates/`. `{kind}` is one of
 
 where
@@ -248,7 +248,7 @@ thing anywhere for that name. Promotion is the builder's call, not yours: it
 materializes `{root}/canon/{kind}/{name}/` from a chosen proposal. Multiple
 chiefs may propose against the same `{name}` over time; each `{ts}/` subtree
 stands alone. This canon-vs-proposal split is the **one structural change** the
-layout requires (see *Gates and cast → what actually has to change*).
+layout requires (see *Gates and players → what actually has to change*).
 
 ### AVOID these errors when capturing traits, roles, plays, and teams
 
@@ -261,7 +261,7 @@ layout requires (see *Gates and cast → what actually has to change*).
 These are **prose bodies** — `main.md` under the primitive. Prose stays
 first-class: paths below elide the `canon/` bucket for brevity (a canonized
 primitive lives at `{root}/canon/{kind}/{name}/main.md`). Any of these bodies
-can also — or instead — be expressed as gates; see *Gates and cast*.
+can also — or instead — be expressed as gates; see *Gates and players*.
 
 Traits
 
@@ -330,7 +330,7 @@ Then focus on delivery that tests the concept first and raise
 feasibility questions on production environment later.
 ```
 
-### Gates and cast — the executable overlay (additive)
+### Gates and players — the executable overlay (additive)
 
 The bodies above are prose, and prose stays first-class: **keep your text, keep
 writing text.** On top of it — incrementally, never all at once — a primitive's
@@ -356,22 +356,23 @@ by its `Given` to a surface or context). Because a role is just its gates,
 referencing a role and writing a gate inline are the same thing by-reference
 vs by-value.
 
-**Cast** is the only non-gate component — *who* is in the flow: `cast/{name}/`
-on teams (a standing roster) and on sessions (participants). A cast member points
-at a role (`role.ref` — a one-line `file://…/canon/roles/{name}` locator) and/or
-carries its own inline `gates/`; a session participant may be just a name with
-its authored leaves (the chief is such a member). No `count` or `seniority`
-fields — a qualifier lives in the **name** and in **gates**, never in a dangling
+**Players** are the only non-gate component — *who* is in the flow:
+`players/{name}/` on teams (a standing roster) and on sessions
+(participants). A player points at a role (`role.ref` — a one-line
+`file://…/canon/roles/{name}` locator) and/or carries its own inline
+`gates/`; a session participant may be just a name with its authored
+leaves (the chief is such a member). No `count` or `seniority` fields —
+a qualifier lives in the **name** and in **gates**, never in a dangling
 ref to something that doesn't exist.
 
 **What actually has to change — and what doesn't.** The *one* real migration
 from the old layout is the bucket split: canonized primitives move under
 `canon/`, proposals under `proposal/{…}/{ts}/`. Everything else is **additive**.
 A `main.md` prose body remains valid — keep it, grow it, and add a `gates/` file
-beside it only when a checkpoint earns being executable; add a `cast/` when a
+beside it only when a checkpoint earns being executable; add a `players/` when a
 team or session wants an explicit roster. A reader handles both formats with no
 real branching: read `main.md` for the prose, `gates/` for the checkpoints,
-`cast/` for the roster — any subset may be present, and a primitive with only
+`players/` for the roster — any subset may be present, and a primitive with only
 prose is as legitimate as one that is all gates. Adopt gates where they buy you
 enforcement; leave prose where it reads better.
 
@@ -403,6 +404,41 @@ This assumes **STAFF-aware** subagents — they know how to dereference role / t
 tools, or anything not STAFF-aware, the chief translates: reads the references
 itself, passes a task description without STAFF concepts, and writes the session
 updates on the subagent's behalf.
+
+## The Program — the staff CLI
+
+The convention needs no software — and when the builder has installed the
+program, use it. On activation, check once: `command -v staff`. If present,
+perform the verbs through the CLI instead of hand-rolling file operations;
+the writes land in the same root through the resolved rig, with the URI
+grammar enforced for you.
+
+| Action | CLI |
+|--------|-----|
+| capture (propose) a primitive | `staff add <kind> <name> [<prose>\|-]` |
+| propose a gate on one | `staff add gate <kind>/<name>/<gate> [<prose>\|-]` |
+| promote (builder's call only) | `staff promote <kind> <name> [<ts>]` |
+| list a kind | `staff list <kind>` |
+| read one path | `staff read <path>` |
+| dispatch a session | `staff cast play\|role\|trait\|team … [--room <room>] [--session <name>] [-- <claude args>]` |
+| preview a cast | `staff cast … --dry-run` |
+| health / rig binding | `staff rig` |
+
+Kinds are singular on the command line (`trait`), plural in the tree
+(`traits`). Prose comes from the trailing argument or stdin (`-`).
+`staff add` writes proposals only — promotion stays the builder's act.
+
+**cast** is the program's dispatch: one cast = one Claude Code session,
+briefed with *references* to the canon it is cast from. `--room <room>`
+writes a cc-chat room URI into the brief so the session joins, observes,
+and stays subscribed — durable agents that communicate, no redispatch.
+Everything after `--` passes to `claude` verbatim (`-- -p "…"` for
+headless).
+
+Install: `deno install --global -A -n staff jsr:@bandeira-tech/staff/cli`
+
+If `staff` is absent, everything below still works by hand — that is the
+point of the convention.
 
 ## Built on b3nd — remote sources, replication, and a shared surface
 

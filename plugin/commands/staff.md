@@ -121,3 +121,7 @@ and pointers to the URIs you minted — so the builder can correct course cheapl
 The chief carries the session name in working memory — there is no "current
 session" stored anywhere. Pass session names explicitly when invoking per-verb
 commands. If anything here drifts from the SKILL, follow the SKILL.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

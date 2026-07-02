@@ -39,3 +39,7 @@ primitives.
 
 Pure read — no mints. Composition stacks: read in declaration order; if
 two traits conflict, the latter wins.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

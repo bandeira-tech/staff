@@ -63,3 +63,7 @@ the end.
 
 Disposition: do, don't ask within a phase. Ask between phases. The play
 is the authority for *what* — you bring the *how*.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.
