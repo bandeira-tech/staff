@@ -1,15 +1,17 @@
 {
   "name": "@bandeira-tech/staff",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "exports": {
     ".": "./src/mod.ts",
-    "./protocol": "./src/protocol.ts"
+    "./protocol": "./src/protocol.ts",
+    "./rig": "./src/rig.ts",
+    "./cli": "./src/cli/main.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15"
   },
   "tasks": {
-    "test": "deno test tests/"
+    "test": "deno test -A tests/"
   },
   "compilerOptions": {
     "strict": true,
