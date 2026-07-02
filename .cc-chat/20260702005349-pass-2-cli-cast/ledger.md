@@ -9,3 +9,7 @@
 - 20260702010330 T2 DONE (8b41cd9, 14/14) — reviewer dispatched (sonnet); T3 brief extracted
 - 20260702010410 Task 2: complete (commits f94fa15..8b41cd9, review clean; trailer ⚠️ resolved by chief; minors: SessionLeaf cast, validate-pass test — final-review triage)
 - 20260702010430 phase:cli minted; T3 implementer dispatched (sonnet, base 8b41cd9)
+- 20260702010800 T3 DONE (02300f2, check+14/14) — reviewer dispatched (sonnet); T4 brief extracted
+- 20260702010904 Task 3: complete (commits 8b41cd9..02300f2, review clean; trailer ⚠️ resolved by chief; note: add -A swept ledger/cc-chat.local.md — T11 cleanup)
+- 20260702011000 T4 implementer dispatched (haiku, base 02300f2)
+- 20260702012140 T4 DONE_WITH_CONCERNS → chief root-caused: Rig.receive returns OperationHandle; ack ≠ settled; short-lived process loses unsettled writes. Fix dispatched (receiveSettled helper). T5-8 dispatches must instruct receiveSettled over raw rig.receive.

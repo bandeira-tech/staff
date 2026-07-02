@@ -110,3 +110,22 @@ export async function findUris(
   const payload = row?.[1];
   return Array.isArray(payload) ? (payload as string[]) : [];
 }
+
+/**
+ * Receive outputs and wait for the write to be durable. b3nd-core's
+ * Rig.receive returns an OperationHandle: awaiting it yields the
+ * pipeline ack, while `.settled` resolves once routes (and their
+ * stores) have fully settled — required for read-after-write
+ * correctness in a short-lived process. Foreign rigs whose receive
+ * returns a plain promise settle on the ack itself.
+ */
+export async function receiveSettled(
+  rig: RigLike,
+  outputs: Array<[string, unknown]>,
+): Promise<Array<{ accepted?: boolean; error?: string }>> {
+  const op = rig.receive(outputs);
+  const results = await op;
+  const settled = (op as { settled?: Promise<unknown> }).settled;
+  if (settled && typeof settled.then === "function") await settled;
+  return results;
+}
