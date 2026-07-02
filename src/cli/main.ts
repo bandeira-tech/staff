@@ -14,6 +14,7 @@ import { rigInfo, setRig } from "./verbs/rig.ts";
 import { list } from "./verbs/list.ts";
 import { readPath } from "./verbs/read.ts";
 import { promote } from "./verbs/promote.ts";
+import { executeCast, parseCastArgs } from "./verbs/cast.ts";
 
 const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
 
@@ -116,6 +117,20 @@ async function dispatch(argv: string[]): Promise<number> {
       console.log(`✓ promoted ${args[0]}/${args[1]} @ ${res.ts}`);
       for (const uri of res.written) console.log(`  ${uri}`);
       return 0;
+    }
+    case "cast": {
+      const spec = parseCastArgs(args);
+      spec.rig = rig;
+      const { plan, code } = await executeCast(spec);
+      if (spec.dryRun) {
+        console.log(`session: ${plan.sessionUri}`);
+        console.log(`claude ${plan.claudeArgv.map((a) => JSON.stringify(a)).join(" ")}`);
+        console.log("--- brief ---");
+        console.log(plan.brief);
+        return 0;
+      }
+      console.log(`session closed with exit code ${code}`);
+      return code ?? 0;
     }
     default: {
       console.error(`unknown verb: ${verb}\n`);

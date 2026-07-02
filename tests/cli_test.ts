@@ -144,3 +144,62 @@ Deno.test("promote: explicit ts, and loud misses", async () => {
     "no proposals",
   );
 });
+
+import { parseCastArgs, planCast } from "../src/cli/verbs/cast.ts";
+
+Deno.test("parseCastArgs: role with traits, room, passthrough", () => {
+  const spec = parseCastArgs([
+    "role", "lead-qa", "skeptical,newbie",
+    "--room", "triage-room", "--session", "triage-2026", "--dry-run",
+    "--", "-p", "triage the inbox",
+  ]);
+  assertEquals(spec.target, {
+    type: "role",
+    name: "lead-qa",
+    traits: ["skeptical", "newbie"],
+  });
+  assertEquals(spec.room, "triage-room");
+  assertEquals(spec.session, "triage-2026");
+  assertEquals(spec.dryRun, true);
+  assertEquals(spec.claudeArgs, ["-p", "triage the inbox"]);
+});
+
+Deno.test("parseCastArgs: play with refs", () => {
+  const spec = parseCastArgs([
+    "play", "bug-triage", "with", "role/lead-qa", "trait/skeptical",
+  ]);
+  assertEquals(spec.target, { type: "play", name: "bug-triage", traits: [] });
+  assertEquals(spec.withRefs, [
+    { kind: "roles", name: "lead-qa" },
+    { kind: "traits", name: "skeptical" },
+  ]);
+});
+
+Deno.test("planCast: composes brief from canon refs", async () => {
+  await freshDataDir();
+  await add({ kindArg: "role", name: "lead-qa", prose: "you lead qa", now: D });
+  await promote("role", "lead-qa", undefined, {});
+  await add({ kindArg: "trait", name: "skeptical", prose: "distrust", now: D });
+  await promote("trait", "skeptical", undefined, {});
+
+  const plan = await planCast(parseCastArgs([
+    "role", "lead-qa", "skeptical",
+    "--room", "triage-room", "--session", "triage-2026", "--dry-run",
+  ]));
+  assertEquals(plan.sessionName, "triage-2026");
+  assertEquals(plan.claudeArgv[0], "--append-system-prompt");
+  assertEquals(plan.refs, ["canon/roles/lead-qa/", "canon/traits/skeptical/"]);
+  assertEquals(plan.brief.includes("immutable://open/cc-chat/triage-room/"), true);
+  assertEquals(plan.brief.includes("sessions/triage-2026/"), true);
+});
+
+Deno.test("planCast: missing ref fails with near-matches", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "x", now: D });
+  await promote("trait", "skeptical", undefined, {});
+  await assertRejects(
+    () => planCast(parseCastArgs(["trait", "skeptic"])),
+    Error,
+    "skeptical",
+  );
+});
