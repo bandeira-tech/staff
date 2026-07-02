@@ -2,62 +2,70 @@
  * @module
  * staff — URI grammar for chief-of-staff primitives.
  *
- *   <root><card>/<name>/main.md                       (card primitives)
- *   <root><card>/<name>/<ts>-<slug>.md                (sibling timestamped notes)
- *   <root>sessions/<name>/<ts>-<leaf>.md              (leaf ∈ {main, update, delivery})
+ *   {root}canon/{kind}/{name}/main.md
+ *   {root}canon/{kind}/{name}/gates/{gate}.md
+ *   {root}canon/{kind}/{name}/players/{player}/role.ref
+ *   {root}canon/{kind}/{name}/players/{player}/gates/{gate}.md
+ *   {root}proposal/{kind}/{name}/{ts}/…            (same subtree shapes)
+ *   {root}sessions/{name}/{ts}-{main|update|delivery}.md
+ *   {root}sessions/{name}/players/{member}/{ts}-{main|update|delivery}.md
+ *   {root}sessions/{name}/gates/{gate}.md
+ *   {root}sessions/{name}/assets/{path}
  *
- * where <card> ∈ { traits, roles, plays, teams, staff }. All six primitives
- * are first-class — there is no "reserved" set. Sessions carry their own
- * shape: a plain-slug directory plus per-leaf timestamped files. Each
- * session can have many updates and one or more deliveries.
- *
- * `<root>` is required by every mint helper and never defaulted in
- * this module. The closed primitive set is exported as RESOURCES.
+ * where {kind} ∈ { traits, roles, plays, teams, staff }. Proposals are
+ * timestamped subtrees; promotion materializes canon/ from a chosen
+ * proposal. `{root}` is required by every mint helper and never
+ * defaulted in this module. Zero imports, by design.
  */
 
-export const RESOURCES = [
-  "traits",
-  "roles",
-  "plays",
-  "teams",
-  "staff",
-  "sessions",
-] as const;
-export type Resource = (typeof RESOURCES)[number];
+export const KINDS = ["traits", "roles", "plays", "teams", "staff"] as const;
+export type Kind = (typeof KINDS)[number];
 
-export const CARD_RESOURCES = [
-  "traits",
-  "roles",
-  "plays",
-  "teams",
-  "staff",
-] as const;
-export type CardResource = (typeof CARD_RESOURCES)[number];
+/** Singular (CLI) and plural (tree) spellings, both mapping to plural. */
+export const KIND_ALIASES: Readonly<Record<string, Kind>> = {
+  trait: "traits",
+  traits: "traits",
+  role: "roles",
+  roles: "roles",
+  play: "plays",
+  plays: "plays",
+  team: "teams",
+  teams: "teams",
+  staff: "staff",
+};
+
+export const BUCKETS = ["canon", "proposal"] as const;
+export type Bucket = (typeof BUCKETS)[number];
 
 export const SESSION_LEAVES = ["main", "update", "delivery"] as const;
 export type SessionLeaf = (typeof SESSION_LEAVES)[number];
 
-export const MAIN_LEAF = "main.md";
+/** A leaf inside a primitive directory (canon or proposal subtree). */
+export type PrimitiveLeaf =
+  | { type: "main" }
+  | { type: "gate"; gate: string }
+  | { type: "player-ref"; player: string }
+  | { type: "player-gate"; player: string; gate: string };
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
-const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const TS_RE = /^[0-9]{14}$/;
 const NONCE_RE = /^[a-z0-9]{6}$/;
-const REVISION_LEAF_RE = /^([0-9]{14})-([a-z0-9][a-z0-9-]{0,47})\.md$/;
-const SESSION_LEAF_RE = /^([0-9]{14})-(main|update|delivery)\.md$/;
+export const GATE_LEAF_RE = /^([a-z0-9][a-z0-9-]{0,47})\.md$/;
+export const SESSION_LEAF_RE = /^([0-9]{14})-(main|update|delivery)\.md$/;
+const ASSET_PATH_RE = /^[a-zA-Z0-9._-]+(\/[a-zA-Z0-9._-]+)*$/;
 
-export function isValidResource(s: string): s is Resource {
-  return (RESOURCES as readonly string[]).includes(s);
+export function isValidKind(s: string): s is Kind {
+  return (KINDS as readonly string[]).includes(s);
 }
-
-export function isValidCardResource(s: string): s is CardResource {
-  return (CARD_RESOURCES as readonly string[]).includes(s);
+export function isValidName(s: string): boolean {
+  return NAME_RE.test(s);
 }
-
-export function isValidName(s: string): boolean { return NAME_RE.test(s); }
-export function isValidSlug(s: string): boolean { return SLUG_RE.test(s); }
-export function isValidTs(s: string): boolean { return TS_RE.test(s); }
-export function isValidNonce(s: string): boolean { return NONCE_RE.test(s); }
+export function isValidTs(s: string): boolean {
+  return TS_RE.test(s);
+}
+export function isValidNonce(s: string): boolean {
+  return NONCE_RE.test(s);
+}
 export function isValidSessionLeaf(s: string): s is SessionLeaf {
   return (SESSION_LEAVES as readonly string[]).includes(s);
 }
@@ -91,114 +99,116 @@ function requireRoot(root: string): void {
   if (!root.endsWith("/")) throw new Error(`root must end with '/': ${root}`);
 }
 
-function requireCardResource(resource: string): asserts resource is CardResource {
-  if (!isValidCardResource(resource)) {
-    throw new Error(`invalid card resource: ${JSON.stringify(resource)}`);
+function requireKind(kind: string): asserts kind is Kind {
+  if (!isValidKind(kind)) {
+    throw new Error(`invalid kind: ${JSON.stringify(kind)}`);
   }
 }
 
-function requireName(name: string): void {
-  if (!isValidName(name)) throw new Error(`invalid name: ${JSON.stringify(name)}`);
+function requireName(label: string, name: string): void {
+  if (!isValidName(name)) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(name)}`);
+  }
 }
 
-function requireSlug(slug: string): void {
-  if (!isValidSlug(slug)) throw new Error(`invalid slug: ${JSON.stringify(slug)}`);
+function requireTs(ts: string): void {
+  if (!isValidTs(ts)) throw new Error(`invalid ts: ${JSON.stringify(ts)}`);
 }
 
-function requireSessionLeaf(leaf: string): asserts leaf is SessionLeaf {
+function leafPath(leaf: PrimitiveLeaf): string {
+  switch (leaf.type) {
+    case "main":
+      return "main.md";
+    case "gate":
+      requireName("gate", leaf.gate);
+      return `gates/${leaf.gate}.md`;
+    case "player-ref":
+      requireName("player", leaf.player);
+      return `players/${leaf.player}/role.ref`;
+    case "player-gate":
+      requireName("player", leaf.player);
+      requireName("gate", leaf.gate);
+      return `players/${leaf.player}/gates/${leaf.gate}.md`;
+  }
+}
+
+/** Canonized primitive leaf — `{root}canon/{kind}/{name}/<leaf>`. */
+export function canonUri(
+  root: string,
+  kind: Kind,
+  name: string,
+  leaf: PrimitiveLeaf = { type: "main" },
+): string {
+  requireRoot(root);
+  requireKind(kind);
+  requireName("name", name);
+  return `${root}canon/${kind}/${name}/${leafPath(leaf)}`;
+}
+
+/** Proposed primitive leaf — `{root}proposal/{kind}/{name}/{ts}/<leaf>`. */
+export function proposalUri(
+  root: string,
+  kind: Kind,
+  name: string,
+  ts: string,
+  leaf: PrimitiveLeaf = { type: "main" },
+): string {
+  requireRoot(root);
+  requireKind(kind);
+  requireName("name", name);
+  requireTs(ts);
+  return `${root}proposal/${kind}/${name}/${ts}/${leafPath(leaf)}`;
+}
+
+/**
+ * Session log leaf — `{root}sessions/{session}/{ts}-{leaf}.md`, optionally
+ * grouped under `players/{player}/`.
+ */
+export function sessionLeafUri(
+  root: string,
+  session: string,
+  leaf: SessionLeaf,
+  opts?: { player?: string; date?: Date },
+): string {
+  requireRoot(root);
+  requireName("session", session);
   if (!isValidSessionLeaf(leaf)) {
     throw new Error(`invalid session leaf: ${JSON.stringify(leaf)}`);
   }
+  const ts = formatTs(opts?.date ?? new Date());
+  let mid = "";
+  if (opts?.player !== undefined) {
+    requireName("player", opts.player);
+    mid = `players/${opts.player}/`;
+  }
+  return `${root}sessions/${session}/${mid}${ts}-${leaf}.md`;
 }
 
-/**
- * Card URI — `<root><card>/<name>/main.md`. For traits, roles, plays,
- * teams, staff.
- */
-export function mainUri(root: string, resource: CardResource, name: string): string {
-  requireRoot(root);
-  requireCardResource(resource);
-  requireName(name);
-  return `${root}${resource}/${name}/${MAIN_LEAF}`;
-}
-
-/**
- * Sibling revision URI under a card — `<root><card>/<name>/<ts>-<slug>.md`.
- */
-export function revisionUri(
+/** Session acceptance gate — `{root}sessions/{session}/gates/{gate}.md`. */
+export function sessionGateUri(
   root: string,
-  resource: CardResource,
-  name: string,
-  slug: string,
-  date?: Date,
+  session: string,
+  gate: string,
 ): string {
   requireRoot(root);
-  requireCardResource(resource);
-  requireName(name);
-  requireSlug(slug);
-  const ts = formatTs(date ?? new Date());
-  return `${root}${resource}/${name}/${ts}-${slug}.md`;
+  requireName("session", session);
+  requireName("gate", gate);
+  return `${root}sessions/${session}/gates/${gate}.md`;
 }
 
-/**
- * Session URI — `<root>sessions/<sessionName>/<ts>-<leaf>.md`.
- *
- * `sessionName` is a plain slug (`[a-z0-9][a-z0-9-]{0,47}`); the
- * timestamp lives on the leaf, not the directory. Each `<ts>-<leaf>.md`
- * is a distinct file: many updates and (in principle) many deliveries
- * are valid.
- */
-export function sessionUri(
+/** Session side-effect file — `{root}sessions/{session}/assets/{path}`. */
+export function sessionAssetUri(
   root: string,
-  sessionName: string,
-  leaf: SessionLeaf,
-  date?: Date,
+  session: string,
+  path: string,
 ): string {
   requireRoot(root);
-  requireName(sessionName);
-  requireSessionLeaf(leaf);
-  const ts = formatTs(date ?? new Date());
-  return `${root}sessions/${sessionName}/${ts}-${leaf}.md`;
-}
-
-export type ParsedUri =
-  | { kind: "main"; resource: CardResource; name: string }
-  | { kind: "revision"; resource: CardResource; name: string; ts: string; slug: string }
-  | { kind: "session"; sessionName: string; ts: string; leaf: SessionLeaf };
-
-export function parseUri(root: string, uri: string): ParsedUri | null {
-  requireRoot(root);
-  if (!uri.startsWith(root)) return null;
-  const rest = uri.slice(root.length);
-  const parts = rest.split("/");
-  if (parts.length !== 3) return null;
-  const [head, mid, leafStr] = parts;
-
-  // sessions/<name>/<ts>-<leaf>.md
-  if (head === "sessions") {
-    if (!isValidName(mid)) return null;
-    const lm = SESSION_LEAF_RE.exec(leafStr);
-    if (!lm) return null;
-    return {
-      kind: "session",
-      sessionName: mid,
-      ts: lm[1],
-      leaf: lm[2] as SessionLeaf,
-    };
+  requireName("session", session);
+  if (!ASSET_PATH_RE.test(path)) {
+    throw new Error(`invalid asset path: ${JSON.stringify(path)}`);
   }
-
-  // <card>/<name>/{main.md | <ts>-<slug>.md}
-  if (!isValidCardResource(head)) return null;
-  if (!isValidName(mid)) return null;
-  if (leafStr === MAIN_LEAF) {
-    return { kind: "main", resource: head, name: mid };
+  if (path.split("/").some((seg) => seg === "." || seg === "..")) {
+    throw new Error(`invalid asset path: ${JSON.stringify(path)}`);
   }
-  const rm = REVISION_LEAF_RE.exec(leafStr);
-  if (!rm) return null;
-  return { kind: "revision", resource: head, name: mid, ts: rm[1], slug: rm[2] };
-}
-
-export function validate(root: string, uri: string): void {
-  const p = parseUri(root, uri);
-  if (!p) throw new Error(`invalid staff URI under ${root}: ${uri}`);
+  return `${root}sessions/${session}/assets/${path}`;
 }
