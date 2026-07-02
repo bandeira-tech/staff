@@ -2,6 +2,8 @@ import { assertEquals } from "@std/assert";
 import { loadStaffRig, STAFF_ROOT, receiveSettled } from "../src/cli/rig-loader.ts";
 import { add, addGate, resolveKind } from "../src/cli/verbs/add.ts";
 import { assertRejects, assertThrows } from "@std/assert";
+import { list } from "../src/cli/verbs/list.ts";
+import { readPath } from "../src/cli/verbs/read.ts";
 
 Deno.test("loadStaffRig: bundled rig loads and answers reads", async () => {
   const tmp = await Deno.makeTempDir();
@@ -69,5 +71,35 @@ Deno.test("addGate rejects malformed paths loudly", async () => {
     () => addGate({ path: "trait/skeptical", prose: "x" }),
     Error,
     "gate path must be <kind>/<name>/<gate>",
+  );
+});
+
+Deno.test("list: canon flag and distinct proposal count", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
+  await add({
+    kindArg: "trait",
+    name: "skeptical",
+    prose: "v2",
+    now: new Date(Date.UTC(2026, 6, 2, 10, 0, 0)),
+  });
+  await add({ kindArg: "trait", name: "newbie", prose: "fresh eyes", now: D });
+  assertEquals(await list("trait", {}), [
+    { name: "newbie", canon: false, proposals: 1 },
+    { name: "skeptical", canon: false, proposals: 2 },
+  ]);
+});
+
+Deno.test("readPath returns the body; misses throw", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "the body", now: D });
+  assertEquals(
+    await readPath("proposal/traits/skeptical/20260702093000/main.md", {}),
+    "the body",
+  );
+  await assertRejects(
+    () => readPath("canon/traits/skeptical/main.md", {}),
+    Error,
+    "not found",
   );
 });

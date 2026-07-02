@@ -11,6 +11,8 @@
 import { add, addGate } from "./verbs/add.ts";
 import { proseFrom } from "./prose.ts";
 import { rigInfo, setRig } from "./verbs/rig.ts";
+import { list } from "./verbs/list.ts";
+import { readPath } from "./verbs/read.ts";
 
 const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
 
@@ -85,6 +87,24 @@ async function dispatch(argv: string[]): Promise<number> {
       const prose = await proseFrom(args[2]);
       const { uri } = await add({ kindArg: args[0], name: args[1], prose, rig });
       console.log(`✓ ${uri}`);
+      return 0;
+    }
+    case "list": {
+      if (!args[0]) throw new Error("usage: staff list <kind>");
+      const entries = await list(args[0], { rig });
+      for (const e of entries) {
+        const marks = [
+          e.canon ? "canon" : "     ",
+          e.proposals > 0 ? `${e.proposals} proposal(s) pending` : "",
+        ].filter(Boolean).join("  ");
+        console.log(`${e.name.padEnd(24)} ${marks}`);
+      }
+      if (entries.length === 0) console.log("(none)");
+      return 0;
+    }
+    case "read": {
+      if (!args[0]) throw new Error("usage: staff read <path>");
+      console.log(await readPath(args[0], { rig }));
       return 0;
     }
     default: {
