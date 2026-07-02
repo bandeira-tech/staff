@@ -116,14 +116,16 @@ Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
 
 Deno.test("e2e: gate usage check fires before stdin is consumed (regression)", async () => {
   const home = await Deno.makeTempDir();
-  // `staff add gate` with no path argument should print usage and exit 1
-  // WITHOUT consuming stdin and raising "no prose given".
-  const r = await runStaff(
-    ["add", "gate"],
-    { home, stdinText: "prose that must not be consumed" },
-  );
+  // Empty piped stdin is the discriminator: the old ordering read stdin
+  // first and died with "no prose given"; the fixed ordering prints the
+  // usage error before ever touching stdin.
+  const r = await runStaff(["add", "gate"], { home, stdinText: "" });
   assertEquals(r.code, 1);
   assertStringIncludes(r.stderr, "usage: staff add gate");
+  assert(
+    !r.stderr.includes("no prose given"),
+    "stdin was consumed before the path check — ordering regressed",
+  );
 });
 
 // ─── 4. unknown verb ─────────────────────────────────────────────────────────
