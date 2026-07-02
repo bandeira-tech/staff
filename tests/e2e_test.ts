@@ -31,6 +31,7 @@ async function runStaff(
     PATH: opts.path ?? Deno.env.get("PATH")!,
   };
   delete env.STAFF_RIG;
+  delete env.STAFF_ROOT;
 
   const cmd = new Deno.Command(Deno.execPath(), {
     args: ["run", "-A", "--no-lock", MAIN, ...args],

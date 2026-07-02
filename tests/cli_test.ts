@@ -11,6 +11,7 @@ Deno.test("loadStaffRig: bundled rig loads and answers reads", async () => {
   const tmp = await Deno.makeTempDir();
   Deno.env.set("STAFF_DATA_DIR", tmp);
   Deno.env.delete("STAFF_RIG");
+  Deno.env.delete("STAFF_ROOT");
   const { rig, source } = await loadStaffRig({});
   assertEquals(source.origin, "bundled");
   const [res] = await receiveSettled(rig, [
@@ -31,6 +32,7 @@ function freshDataDir(): Promise<string> {
     Deno.env.set("HOME", tmp);
     Deno.env.set("STAFF_DATA_DIR", tmp);
     Deno.env.delete("STAFF_RIG");
+    Deno.env.delete("STAFF_ROOT");
     return tmp;
   });
 }

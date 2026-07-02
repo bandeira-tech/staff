@@ -5,7 +5,7 @@
  *   1. Explicit `--rig <path|url>`
  *   2. $STAFF_RIG
  *   3. `rig` in ~/.staff/config.json (set via `staff rig <path>`)
- *   4. Bundled default (../rig.ts — FsStore at $STAFF_DATA_DIR or ~/.staff/fs)
+ *   4. Bundled default (../rig.ts — bare tree at $STAFF_ROOT or $STAFF_DATA_DIR or ~/.staff)
  *
  * Module convention (duck-typed default export), same as `bnd`:
  *   export default rig | () => rig | async (env) => rig
