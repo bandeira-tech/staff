@@ -37,16 +37,26 @@ Cast:
   staff cast team <name>                     [same options]
 `;
 
-/** Pull `--rig <value>` out of argv; return [value, rest]. */
+/** Pull `--rig <value>` or `--rig=value` out of argv (before `--`); return [value, rest]. */
 export function extractFlag(
   argv: string[],
   flag: string,
 ): [string | undefined, string[]] {
-  const i = argv.indexOf(flag);
-  if (i === -1) return [undefined, argv];
-  const value = argv[i + 1];
-  if (value === undefined) throw new Error(`${flag} requires a value`);
-  return [value, [...argv.slice(0, i), ...argv.slice(i + 2)]];
+  const stop = argv.indexOf("--");
+  const limit = stop === -1 ? argv.length : stop;
+  for (let i = 0; i < limit; i++) {
+    const tok = argv[i];
+    if (tok === flag) {
+      if (i + 1 >= limit) throw new Error(`${flag} requires a value`);
+      return [argv[i + 1], [...argv.slice(0, i), ...argv.slice(i + 2)]];
+    }
+    if (tok.startsWith(`${flag}=`)) {
+      const value = tok.slice(flag.length + 1);
+      if (!value) throw new Error(`${flag} requires a value`);
+      return [value, [...argv.slice(0, i), ...argv.slice(i + 1)]];
+    }
+  }
+  return [undefined, argv];
 }
 
 async function dispatch(argv: string[]): Promise<number> {
@@ -78,8 +88,14 @@ async function dispatch(argv: string[]): Promise<number> {
     }
     case "add": {
       if (args[0] === "gate") {
+        const path = args[1] ?? "";
+        if (path.split("/").length !== 3) {
+          throw new Error(
+            "usage: staff add gate <kind>/<name>/<gate> [<prose>|-]",
+          );
+        }
         const prose = await proseFrom(args[2]);
-        const { uri } = await addGate({ path: args[1] ?? "", prose, rig });
+        const { uri } = await addGate({ path, prose, rig });
         console.log(`✓ ${uri}`);
         return 0;
       }

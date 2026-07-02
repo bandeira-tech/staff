@@ -2,6 +2,7 @@ import { assertEquals } from "@std/assert";
 import { loadStaffRig, STAFF_ROOT, receiveSettled } from "../src/cli/rig-loader.ts";
 import { add, addGate, resolveKind } from "../src/cli/verbs/add.ts";
 import { assertRejects, assertThrows } from "@std/assert";
+import { extractFlag } from "../src/cli/main.ts";
 import { list } from "../src/cli/verbs/list.ts";
 import { readPath } from "../src/cli/verbs/read.ts";
 import { promote } from "../src/cli/verbs/promote.ts";
@@ -27,6 +28,7 @@ const D = new Date(Date.UTC(2026, 6, 2, 9, 30, 0)); // 20260702093000
 
 function freshDataDir(): Promise<string> {
   return Deno.makeTempDir().then((tmp) => {
+    Deno.env.set("HOME", tmp);
     Deno.env.set("STAFF_DATA_DIR", tmp);
     Deno.env.delete("STAFF_RIG");
     return tmp;
@@ -146,6 +148,14 @@ Deno.test("promote: explicit ts, and loud misses", async () => {
 });
 
 import { parseCastArgs, planCast } from "../src/cli/verbs/cast.ts";
+
+Deno.test("extractFlag: space form, equals form, -- boundary", () => {
+  assertEquals(extractFlag(["a", "--rig", "/r", "b"], "--rig"), ["/r", ["a", "b"]]);
+  assertEquals(extractFlag(["a", "--rig=/r", "b"], "--rig"), ["/r", ["a", "b"]]);
+  assertEquals(extractFlag(["a", "--", "--rig", "/r"], "--rig"), [undefined, ["a", "--", "--rig", "/r"]]);
+  assertThrows(() => extractFlag(["--rig"], "--rig"), Error, "requires a value");
+  assertThrows(() => extractFlag(["--rig="], "--rig"), Error, "requires a value");
+});
 
 Deno.test("parseCastArgs: role with traits, room, passthrough", () => {
   const spec = parseCastArgs([
