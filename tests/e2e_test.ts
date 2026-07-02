@@ -206,3 +206,69 @@ Deno.test("e2e: cast errors when claude binary is not on PATH", async () => {
   assertEquals(r.code, 1);
   assertStringIncludes(r.stderr, "claude binary not found on PATH");
 });
+
+// ─── 8. transparent tree — path is URI ───────────────────────────────────────
+
+Deno.test("e2e: transparent tree — path is URI (b3nd-save 0.13 regression guard)", async () => {
+  const home = await Deno.makeTempDir();
+  // runStaff sets STAFF_DATA_DIR = ${home}/fs
+  const dataDir = `${home}/fs`;
+
+  // add trait
+  const add = await runStaff(
+    ["add", "trait", "skeptical", "You don't trust..."],
+    { home },
+  );
+  assertEquals(add.code, 0, `add stderr: ${add.stderr}`);
+
+  // Parse the URI from the output line: "✓ immutable://open/staff/proposal/…"
+  const wireUri = add.stdout.trim().replace(/^✓ /, "");
+  assert(
+    wireUri.startsWith("immutable://open/staff/"),
+    `unexpected URI: ${wireUri}`,
+  );
+  const storePath = wireUri.slice("immutable://open/staff/".length);
+
+  // The proposal must exist as a PLAIN file at ${dataDir}/${storePath} —
+  // no .bin suffix, no immutable_open/ prefix — with the prose verbatim.
+  let content: string;
+  try {
+    content = await Deno.readTextFile(`${dataDir}/${storePath}`);
+  } catch {
+    throw new Error(
+      `transparent-tree: file not found at ${dataDir}/${storePath}\n` +
+        `  (add output was: ${add.stdout.trim()})`,
+    );
+  }
+  assertEquals(
+    content,
+    "You don't trust...",
+    "proposal file content must round-trip exactly",
+  );
+
+  // .b3nd/ store bookkeeping must exist under the data dir (dot-prefixed)
+  const b3ndStat = await Deno.stat(`${dataDir}/.b3nd`);
+  assert(b3ndStat.isDirectory, ".b3nd/ must be a directory");
+
+  // promote
+  const promote = await runStaff(["promote", "trait", "skeptical"], { home });
+  assertEquals(promote.code, 0, `promote stderr: ${promote.stderr}`);
+
+  // canon/traits/skeptical/main.md must exist as a plain markdown file
+  const canonContent = await Deno.readTextFile(
+    `${dataDir}/canon/traits/skeptical/main.md`,
+  );
+  assertEquals(
+    canonContent,
+    "You don't trust...",
+    "canon file content must round-trip exactly",
+  );
+
+  // No immutable_open/ directory may exist (old layout is gone)
+  let oldLayoutExists = false;
+  try {
+    await Deno.stat(`${dataDir}/immutable_open`);
+    oldLayoutExists = true;
+  } catch { /* expected — old dir must not exist */ }
+  assert(!oldLayoutExists, "immutable_open/ must not exist in the transparent tree");
+});

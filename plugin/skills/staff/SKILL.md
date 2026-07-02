@@ -468,8 +468,10 @@ on stdio. The builder needs `bnd` on PATH:
 deno install --global -A -n bnd jsr:@bandeira-tech/b3nd-cli@^0.5.0
 ```
 
-The rig's store resolves its data dir from `$STAFF_DATA_DIR`, defaulting to
-`~/.staff/fs`. If `b3nd_status` doesn't return, either `bnd` is missing or the rig
+The rig's store resolves its data dir in order: `$STAFF_ROOT` →
+`$STAFF_DATA_DIR` → `~/.staff`. The rig's tree is the same human-readable tree
+as the bare-fs convention — one root, one layout, by hand or through the
+program. If `b3nd_status` doesn't return, either `bnd` is missing or the rig
 file isn't where the launcher expects — surface that to the builder; don't fall
 back to direct HTTP or ad-hoc scripts.
 

@@ -16,7 +16,9 @@ export interface RigInfo {
 export async function rigInfo(opts: { explicit?: string }): Promise<RigInfo> {
   const { rig, source } = await loadStaffRig(opts);
   const home = Deno.env.get("HOME") ?? "";
-  const dataDir = Deno.env.get("STAFF_DATA_DIR") ?? `${home}/.staff/fs`;
+  const dataDir = Deno.env.get("STAFF_ROOT") ??
+    Deno.env.get("STAFF_DATA_DIR") ??
+    `${home}/.staff`;
   const info: RigInfo = {
     input: source.input,
     origin: source.origin,

@@ -7,8 +7,21 @@
  *   bnd node jsr:@bandeira-tech/staff/rig --http --cors '*'     # HTTP + CORS (browsers, atrium)
  *
  * Data dir resolves in this order:
- *   1. $STAFF_DATA_DIR
- *   2. ~/.staff/fs
+ *   1. $STAFF_ROOT
+ *   2. $STAFF_DATA_DIR (back-compat alias)
+ *   3. ~/.staff
+ *
+ * The rig store is a TRANSPARENT bare tree: the store URI IS the
+ * relative filesystem path (no `immutable_open/` prefix, no `.bin`
+ * suffix). Store bookkeeping lives in `.b3nd/entities/` (dot-prefixed,
+ * ignored by conventional tree walkers). The rig root and the skill's
+ * by-hand root are the same directory — `canon/traits/x/main.md` sits
+ * directly under the root, readable by any tool; non-staff files like
+ * `config.json` are invisible to the grammar.
+ *
+ * staffTreeMapper owns both URI-prefix translation and text/stream
+ * coercion. The old UPSTREAM_GAP wrappers (bufferStreamsInRead,
+ * staffTextPayloads) are deleted — the mapper supersedes them.
  *
  * The rig deliberately does NOT serve a web UI — that is a separate
  * application concern (see atrium).
@@ -20,19 +33,84 @@ import { dirname } from "jsr:@std/path@^1/dirname";
 import { relative } from "jsr:@std/path@^1/relative";
 
 import { connection, Rig } from "jsr:@bandeira-tech/b3nd-core@^0.24.0/rig";
-import { FsStore } from "jsr:@bandeira-tech/b3nd-save@^0.12.1/fs";
-import type { FsExecutor } from "jsr:@bandeira-tech/b3nd-save@^0.12.1/fs";
-import { BYTES_ENTITY } from "jsr:@bandeira-tech/b3nd-save@^0.12.1/entity";
-import { mapToBytes, SaveClient } from "jsr:@bandeira-tech/b3nd-save@^0.12.1/clients";
+import { FsStore } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/fs";
+import type { FsExecutor } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/fs";
+import { BYTES_ENTITY } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/entity";
+import type { EntityRecord } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/entity";
+import { SaveClient } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/clients";
+import type { SaveMapper } from "jsr:@bandeira-tech/b3nd-save@^0.13.0/clients";
 
 const STAFF_URI_PATTERN = "immutable://open/staff/**";
+const WIRE_PREFIX = "immutable://open/staff/";
+
+/**
+ * Bidirectional codec between the staff wire URI vocabulary
+ * (`immutable://open/staff/…`) and the transparent FsStore
+ * (store URI = relative filesystem path under rootDir).
+ *
+ * toStore  — strips the wire prefix; query string survives as suffix.
+ * fromStore — re-adds the wire prefix; drops dot-prefixed entries
+ *             (`.b3nd/`, `.DS_Store`, …) by returning null; buffers
+ *             ReadableStream payloads to Uint8Array and decodes to
+ *             string (staff URIs carry only text bodies).
+ *
+ * This mapper supersedes the old bufferStreamsInRead / staffTextPayloads
+ * UPSTREAM_GAP wrappers — URI translation and payload coercion now live
+ * in the same place, as SaveMapper intends.
+ */
+export const staffTreeMapper: SaveMapper<string | Uint8Array, string> = {
+  toStore(wireUri: string, payload?: string | Uint8Array) {
+    if (!wireUri.startsWith(WIRE_PREFIX)) {
+      throw new Error(`foreign uri: ${wireUri}`);
+    }
+    const storeUri = wireUri.slice(WIRE_PREFIX.length);
+    return {
+      uri: storeUri,
+      record: payload === undefined ? undefined : {
+        payload: typeof payload === "string"
+          ? new TextEncoder().encode(payload)
+          : payload,
+      },
+    };
+  },
+
+  async fromStore(storeUri: string, record?: EntityRecord) {
+    // Dotfile check on the path part only — the query string is params.
+    const qIdx = storeUri.indexOf("?");
+    const pathPart = qIdx >= 0 ? storeUri.slice(0, qIdx) : storeUri;
+    if (pathPart.split("/").some((seg) => seg.startsWith("."))) {
+      return null;
+    }
+    const wireUri = WIRE_PREFIX + storeUri;
+    if (record === undefined) {
+      return { uri: wireUri };
+    }
+    const raw = record.payload;
+    let bytes: Uint8Array;
+    if (
+      raw !== null && raw !== undefined && typeof raw === "object" &&
+      typeof (raw as ReadableStream).getReader === "function"
+    ) {
+      bytes = new Uint8Array(
+        await new Response(raw as ReadableStream<Uint8Array>).arrayBuffer(),
+      );
+    } else if (raw instanceof Uint8Array) {
+      bytes = raw;
+    } else {
+      bytes = new Uint8Array(0);
+    }
+    return { uri: wireUri, payload: new TextDecoder().decode(bytes) };
+  },
+};
 
 function resolveDataDir(): string {
+  const root = Deno.env.get("STAFF_ROOT");
+  if (root) return root;
   const env = Deno.env.get("STAFF_DATA_DIR");
   if (env) return env;
   const home = Deno.env.get("HOME");
-  if (!home) throw new Error("STAFF_DATA_DIR unset and HOME unset");
-  return `${home}/.staff/fs`;
+  if (!home) throw new Error("STAFF_ROOT, STAFF_DATA_DIR unset and HOME unset");
+  return `${home}/.staff`;
 }
 
 function fsExecutor(): FsExecutor {
@@ -80,72 +158,6 @@ function fsExecutor(): FsExecutor {
   };
 }
 
-// UPSTREAM_GAP(b3nd-save↔b3nd-move): FsStore-bytes read returns each slot as
-// `{ payload: ReadableStream }`. The HTTP wire's outputs-frame codec expects
-// `Uint8Array` for raw bytes; a stream hits the JSON.stringify fallback and
-// serializes as `{}`. Buffer per slot here as a local workaround. Carried
-// over from b3nd-cc-chat — remove once upstream codec handles ReadableStream
-// payloads.
-// deno-lint-ignore no-explicit-any
-function bufferStreamsInRead<T extends { read: (urls: string[]) => Promise<any> }>(
-  inner: T,
-): T {
-  const orig = inner.read.bind(inner);
-  // deno-lint-ignore no-explicit-any
-  inner.read = (async (urls: string[]): Promise<any> => {
-    const rows = (await orig(urls)) as Array<[string, unknown]>;
-    return Promise.all(rows.map(async ([uri, payload]) => {
-      if (payload && typeof payload === "object" &&
-          typeof (payload as ReadableStream).getReader === "function") {
-        const bytes = new Uint8Array(
-          await new Response(payload as ReadableStream<Uint8Array>).arrayBuffer(),
-        );
-        return [uri, bytes];
-      }
-      return [uri, payload];
-    }));
-  }) as T["read"];
-  return inner;
-}
-
-// UPSTREAM_GAP(b3nd-save): SaveClient.receive forwards mapToBytes-wrapped
-// payloads to FsStore.write, which rejects anything that isn't Uint8Array or
-// ReadableStream — but the rejection bubbles back as `accepted: true` with
-// no on-disk artifact. Strings (staff's only payload shape) vanish silently.
-// Coerce here. Remove once SaveClient propagates the FsStore error correctly.
-//
-// UPSTREAM_GAP(b3nd-move-mcp): the MCP `b3nd_read` response serializes a
-// Uint8Array as a numeric-indexed object — painful for any consumer that
-// expects a string body. Staff URIs only carry text bodies (markdown / JSON),
-// so we decode bytes → string at the rig boundary.
-const TEXT_ENC = new TextEncoder();
-const TEXT_DEC = new TextDecoder();
-
-// deno-lint-ignore no-explicit-any
-function staffTextPayloads<T extends { receive: (msgs: any) => Promise<any>; read: (urls: string[]) => Promise<any> }>(
-  inner: T,
-): T {
-  const origReceive = inner.receive.bind(inner);
-  // deno-lint-ignore no-explicit-any
-  inner.receive = ((msgs: Array<[string, unknown]>): Promise<any> =>
-    origReceive(
-      msgs.map(([uri, p]) =>
-        typeof p === "string" ? [uri, TEXT_ENC.encode(p)] : [uri, p]
-      ),
-    )) as T["receive"];
-
-  const origRead = inner.read.bind(inner);
-  // deno-lint-ignore no-explicit-any
-  inner.read = (async (urls: string[]): Promise<any> => {
-    const rows = (await origRead(urls)) as Array<[string, unknown]>;
-    return rows.map(([uri, p]) =>
-      p instanceof Uint8Array ? [uri, TEXT_DEC.decode(p)] : [uri, p]
-    );
-  }) as T["read"];
-
-  return inner;
-}
-
 export default async function staffRig(): Promise<Rig> {
   const root = resolveDataDir();
   await ensureDir(root);
@@ -153,9 +165,7 @@ export default async function staffRig(): Promise<Rig> {
   const store = new FsStore(root, fsExecutor());
   await store.provisionEntity(store.entitySupport(BYTES_ENTITY));
 
-  const client = staffTextPayloads(
-    bufferStreamsInRead(new SaveClient(mapToBytes, BYTES_ENTITY, store)),
-  );
+  const client = new SaveClient(staffTreeMapper, BYTES_ENTITY, store);
   const conn = connection(client, [STAFF_URI_PATTERN]);
 
   return new Rig({
