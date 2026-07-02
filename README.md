@@ -19,6 +19,27 @@ All your data locally, and easily replicated wherever you need it.
     /sessions/{name}/{ts}-{main,update,delivery}.md
 ```
 
+Quickstart
+----------
+
+`staff` is the program STAFF runs on: your canon of traits, roles, plays, and teams as small
+markdown primitives, and `cast` to put them to work inside Claude Code sessions.
+
+Install:
+
+    deno install --global -A -n staff jsr:@bandeira-tech/staff/cli
+
+First run:
+
+    staff rig                                               # health: which rig, where data lives (~/.staff/fs)
+    staff add trait skeptical "You don't trust work being presented to you."
+    staff list trait                                        # 1 proposal pending
+    staff promote trait skeptical                          # proposals are yours to promote to canon
+    staff cast trait skeptical -- -p "review the README"   # one cast = one Claude session
+
+Everything is markdown under a URI grammar — readable and grep-able by hand, no server required.
+Add `--room <room>` to a cast and agents coordinate live through a cc-chat room (rooms are data).
+
 Pass 2 status (2026-07-02)
 --------------------------
 
