@@ -19,27 +19,29 @@ All your data locally, and easily replicated wherever you need it.
     /sessions/{name}/{ts}-{main,update,delivery}.md
 ```
 
-Pass 1 status (2026-06-29)
+Pass 2 status (2026-07-02)
 --------------------------
 
-This pass ships the URI convention (tested), a prose-only Claude Code
-plugin skeleton (no MCP rig wired yet), and a single-page install site
-for `staff.bandeira.tech`. No bundled data; the framework is the
-product.
+Pass 2 ships the program: a `staff` CLI (`add`, `promote`, `list`,
+`read`, `cast`, `rig`) that loads a b3nd rig in-process — bundled
+FsStore rig by default (`~/.staff/fs`), user-pluggable via `staff rig`.
+`add` writes proposals; `promote` is the builder's act; `cast` composes
+refs into a brief, records the session, and spawns a Claude Code
+session (`--room` writes a cc-chat room URI into the brief — rooms are
+data, not integrations). The protocol module covers the full grammar:
+`canon/` and `proposal/{…}/{ts}/` buckets, `gates/`, `players/`
+(renamed from `cast/`), and player-grouped session leaves.
 
-The protocol module implements the six STAFF primitives — `traits`,
-`roles`, `plays`, `teams`, `staff`, `sessions` — all first-class.
-Card primitives live at `<root><card>/<name>/main.md` (lowercase
-leaf). Sessions live at `<root>sessions/<name>/<ts>-<leaf>.md` where
-`<leaf>` is one of `main`, `update`, `delivery`. Each session may
-have many updates and one or more deliveries; the timestamp lives on
-the leaf, not on the directory.
+Install the CLI:
 
-Pass 2 will: wire the b3nd MCP rig
-(`plugin/.claude-plugin/staff.rig.ts`), add the web viewer, and
-settle the active-session tracking design.
+    deno install --global -A -n staff jsr:@bandeira-tech/staff/cli
 
-- Spec: `docs/superpowers/specs/2026-06-29-staff-mvp-design.md`
-- Plan: `docs/superpowers/plans/2026-06-29-staff-mvp.md`
-- Site: `site/index.html` (opens with `open site/index.html`)
-- Tests: `deno task test` — 34 passing.
+Serve the rig (browsers / atrium / MCP) with bnd v0.5+:
+
+    bnd node jsr:@bandeira-tech/staff/rig --http --cors '*'
+    bnd node jsr:@bandeira-tech/staff/rig --mcp
+
+- Spec: `docs/superpowers/specs/2026-07-02-staff-cli-addons-design.md`
+- Plan: `docs/superpowers/plans/2026-07-02-staff-pass-2.md`
+- Pass 1: `docs/superpowers/specs/2026-06-29-staff-mvp-design.md`
+- Tests: `deno task test`
