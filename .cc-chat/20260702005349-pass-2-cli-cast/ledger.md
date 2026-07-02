@@ -13,3 +13,6 @@
 - 20260702010904 Task 3: complete (commits 8b41cd9..02300f2, review clean; trailer ⚠️ resolved by chief; note: add -A swept ledger/cc-chat.local.md — T11 cleanup)
 - 20260702011000 T4 implementer dispatched (haiku, base 02300f2)
 - 20260702012140 T4 DONE_WITH_CONCERNS → chief root-caused: Rig.receive returns OperationHandle; ack ≠ settled; short-lived process loses unsettled writes. Fix dispatched (receiveSettled helper). T5-8 dispatches must instruct receiveSettled over raw rig.receive.
+- 20260702012400 T4 fix landed (540ba37, 15/15) — re-review dispatched over 02300f2..540ba37; T5 brief extracted
+- 20260702012241 Task 4: complete (commits 02300f2..540ba37 incl. receiveSettled fix, review clean; ⚠️s resolved; minor: test env cleanup — final-review triage)
+- 20260702012600 T5 implementer dispatched (haiku, base 540ba37, receiveSettled amendment)

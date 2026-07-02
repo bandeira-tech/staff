@@ -8,6 +8,8 @@
  * Verbs: add, promote, list, read, cast, rig. Run `staff --help`.
  */
 
+import { add, addGate } from "./verbs/add.ts";
+import { proseFrom } from "./prose.ts";
 import { rigInfo, setRig } from "./verbs/rig.ts";
 
 const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
@@ -68,6 +70,21 @@ async function dispatch(argv: string[]): Promise<number> {
         console.log(`status:   ${JSON.stringify(info.status)}`);
       }
       if (info.statusError) console.log(`status:   ERROR — ${info.statusError}`);
+      return 0;
+    }
+    case "add": {
+      if (args[0] === "gate") {
+        const prose = await proseFrom(args[2]);
+        const { uri } = await addGate({ path: args[1] ?? "", prose, rig });
+        console.log(`✓ ${uri}`);
+        return 0;
+      }
+      if (!args[0] || !args[1]) {
+        throw new Error("usage: staff add <kind> <name> [<prose>|-]");
+      }
+      const prose = await proseFrom(args[2]);
+      const { uri } = await add({ kindArg: args[0], name: args[1], prose, rig });
+      console.log(`✓ ${uri}`);
       return 0;
     }
     default: {
