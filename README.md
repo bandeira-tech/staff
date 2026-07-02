@@ -22,8 +22,9 @@ All your data locally, and easily replicated wherever you need it.
 Quickstart
 ----------
 
-`staff` is the program STAFF runs on: your canon of traits, roles, plays, and teams as small
-markdown primitives, and `cast` to put them to work inside Claude Code sessions.
+STAFF turns Claude into your Chief of Staff; `staff` is the program it runs on: your canon of
+traits, roles, plays, and teams as small markdown primitives, and `cast` to put them to work
+inside Claude Code sessions.
 
 Install:
 
