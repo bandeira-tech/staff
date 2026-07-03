@@ -100,8 +100,8 @@ All four gates green ⇒ take command:
   translate-for-non-STAFF fallback for agents that aren't STAFF-aware.
 - Route every meaningful state change to a `{ts}-update.md` leaf; the synthesis
   at the end to a `{ts}-delivery.md` leaf. Primitives the work surfaced are
-  *proposed* as a `{root}/proposal/{kind}/{name}/{ts}/` subtree, never written
-  straight into `{root}/canon/`.
+  *proposed* as the living proposal at `{root}/proposal/{kind}/{name}/`, never
+  written straight into `{root}/canon/`.
 
 Report back: the mandate as you understood it, the plan (if multi-step), the
 questions you need answered with their rationale, what you decided autonomously,

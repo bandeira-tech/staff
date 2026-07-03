@@ -24,8 +24,8 @@ You are listing entries in the STAFF convention.
 2. **List.**
    Primary: `ls <root>canon/<resource>/` on disk (the canonized
    entries). Sessions sit outside canon: `ls <root>sessions/`.
-   - proposals for a card: `ls <root>proposal/<card>/<name>/` — one
-     `<ts>/` subtree per pending proposal.
+   - proposal for a card: `ls <root>proposal/<card>/<name>/` — one living
+     proposal per name (no `<ts>/` subtree; `updates/` is the log).
    - leaves of a session: `ls <root>sessions/<name>/` (leaves may be
      grouped under `players/<member>/`).
    If a b3nd rig is wired, the equivalent is
@@ -48,8 +48,8 @@ You are listing entries in the STAFF convention.
      listing is the orientation surface — there is no registry, per
      the SKILL's "Sessions are logs, not state".
    - For a specific card `<name>`: the canonized entry at
-     `<root>canon/<card>/<name>/` first, then pending proposals under
-     `<root>proposal/<card>/<name>/` (newest `<ts>/` first).
+     `<root>canon/<card>/<name>/` first, then the living proposal at
+     `<root>proposal/<card>/<name>/` if one exists.
    - For a specific session `<name>`: enumerate its `<ts>-main.md`,
      `<ts>-update.md`, `<ts>-delivery.md` leaves (at the root or under
      `players/<member>/`) in timestamp order.

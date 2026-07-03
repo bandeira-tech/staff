@@ -12,6 +12,7 @@ import {
   KINDS,
   mintNonce,
   parseUri,
+  proposalUpdateUri,
   proposalUri,
   SESSION_LEAVES,
   sessionAssetUri,
@@ -76,25 +77,37 @@ Deno.test("canonUri: gate / player-ref / player-gate leaves", () => {
   );
 });
 
-Deno.test("proposalUri: timestamped subtree", () => {
+Deno.test("proposalUri: living proposal leaf (no ts)", () => {
   assertEquals(
-    proposalUri(ROOT, "plays", "bug-triage", "20260702093000"),
-    "immutable://open/staff/proposal/plays/bug-triage/20260702093000/main.md",
+    proposalUri(ROOT, "plays", "bug-triage"),
+    "immutable://open/staff/proposal/plays/bug-triage/main.md",
   );
   assertEquals(
-    proposalUri(ROOT, "plays", "bug-triage", "20260702093000", {
-      type: "gate",
-      gate: "repro-first",
-    }),
-    "immutable://open/staff/proposal/plays/bug-triage/20260702093000/gates/repro-first.md",
+    proposalUri(ROOT, "plays", "bug-triage", { type: "gate", gate: "repro-first" }),
+    "immutable://open/staff/proposal/plays/bug-triage/gates/repro-first.md",
   );
+});
+
+Deno.test("proposalUpdateUri: mint and parse round-trip", () => {
+  const uri = proposalUpdateUri(ROOT, "traits", "skeptical", D);
+  assertEquals(
+    uri,
+    "immutable://open/staff/proposal/traits/skeptical/updates/20260702093000.md",
+  );
+  assertEquals(parseUri(ROOT, uri), {
+    at: "proposal-update",
+    kind: "traits",
+    name: "skeptical",
+    ts: "20260702093000",
+  });
 });
 
 Deno.test("mint helpers throw on bad segments", () => {
   assertThrows(() => canonUri("no-scheme/", "traits", "x"));
   assertThrows(() => canonUri(ROOT, "nope" as never, "x"));
   assertThrows(() => canonUri(ROOT, "traits", "Bad Name"));
-  assertThrows(() => proposalUri(ROOT, "traits", "x", "2026"));
+  assertThrows(() => proposalUri(ROOT, "traits", "Bad Name"));
+  assertThrows(() => proposalUpdateUri(ROOT, "nope" as never, "x"));
   assertThrows(() =>
     canonUri(ROOT, "traits", "x", { type: "gate", gate: "Bad Gate" })
   );
@@ -168,19 +181,27 @@ Deno.test("parseUri: canon shapes round-trip", () => {
   );
 });
 
-Deno.test("parseUri: proposal carries ts", () => {
+Deno.test("parseUri: living proposal main and gate", () => {
+  assertEquals(
+    parseUri(ROOT, "immutable://open/staff/proposal/plays/bug-triage/main.md"),
+    { at: "proposal", kind: "plays", name: "bug-triage", leaf: { type: "main" } },
+  );
   assertEquals(
     parseUri(
       ROOT,
-      "immutable://open/staff/proposal/plays/bug-triage/20260702093000/main.md",
+      "immutable://open/staff/proposal/traits/skeptical/gates/no-empty-promises.md",
     ),
     {
       at: "proposal",
-      kind: "plays",
-      name: "bug-triage",
-      ts: "20260702093000",
-      leaf: { type: "main" },
+      kind: "traits",
+      name: "skeptical",
+      leaf: { type: "gate", gate: "no-empty-promises" },
     },
+  );
+  // Old timestamped-subtree shape must now be invisible (null).
+  assertEquals(
+    parseUri(ROOT, `${ROOT}proposal/traits/x/20260702093000/main.md`),
+    null,
   );
 });
 
@@ -225,7 +246,11 @@ Deno.test("parseUri: malformed is invisible (null), validate throws", () => {
   assertEquals(parseUri(ROOT, "immutable://open/other/x/main.md"), null);
   assertEquals(parseUri(ROOT, `${ROOT}canon/nope/x/main.md`), null);
   assertEquals(parseUri(ROOT, `${ROOT}canon/traits/x/other.md`), null);
-  assertEquals(parseUri(ROOT, `${ROOT}proposal/traits/x/2026/main.md`), null);
+  // Old timestamped-subtree shape (ts segment before leaf) → null.
+  assertEquals(parseUri(ROOT, `${ROOT}proposal/traits/x/20260702093000/main.md`), null);
+  // Malformed updates/ (bad ts, extra segment).
+  assertEquals(parseUri(ROOT, `${ROOT}proposal/traits/x/updates/notats.md`), null);
+  assertEquals(parseUri(ROOT, `${ROOT}proposal/traits/x/updates/20260702093000.md/extra`), null);
   assertEquals(parseUri(ROOT, `${ROOT}sessions/x/20260702093000-report.md`), null);
   assertThrows(() => validate(ROOT, `${ROOT}canon/nope/x/main.md`));
 });

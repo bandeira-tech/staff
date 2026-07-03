@@ -35,7 +35,7 @@ First run:
     staff rig                                               # health: which rig, where data lives (~/Staff, or the nearest staff|.staff tree)
     staff root   # where your data lives — public by default; `mv staff .staff` any time to hide it
     staff add trait skeptical "You don't trust work being presented to you."
-    staff list trait                                        # 1 proposal pending
+    staff list trait                                        # proposal pending
     staff promote trait skeptical                          # proposals are yours to promote to canon
     staff cast trait skeptical -- -p "review the README"   # one cast = one Claude session
 
@@ -52,7 +52,7 @@ FsStore rig by default (`~/Staff`), user-pluggable via `staff rig`.
 refs into a brief, records the session, and spawns a Claude Code
 session (`--room` writes a cc-chat room URI into the brief — rooms are
 data, not integrations). The protocol module covers the full grammar:
-`canon/` and `proposal/{…}/{ts}/` buckets, `gates/`, `players/`
+`canon/` and `proposal/{…}/` (living proposal) buckets, `gates/`, `players/`
 (renamed from `cast/`), and player-grouped session leaves.
 
 Install the CLI:

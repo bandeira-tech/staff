@@ -43,7 +43,7 @@ Deno.test("resolveKind maps singular to tree plural, rejects junk", () => {
   assertThrows(() => resolveKind("session"), Error, "unknown kind");
 });
 
-Deno.test("add writes a proposal main.md, never canon", async () => {
+Deno.test("add writes a living proposal main.md (no ts), never canon", async () => {
   await freshDataDir();
   const { uri } = await add({
     kindArg: "trait",
@@ -53,11 +53,11 @@ Deno.test("add writes a proposal main.md, never canon", async () => {
   });
   assertEquals(
     uri,
-    "immutable://open/staff/proposal/traits/skeptical/20260702093000/main.md",
+    "immutable://open/staff/proposal/traits/skeptical/main.md",
   );
 });
 
-Deno.test("addGate writes under the proposal's gates/", async () => {
+Deno.test("addGate writes under the living proposal's gates/", async () => {
   await freshDataDir();
   const { uri } = await addGate({
     path: "trait/skeptical/no-empty-promises",
@@ -66,7 +66,7 @@ Deno.test("addGate writes under the proposal's gates/", async () => {
   });
   assertEquals(
     uri,
-    "immutable://open/staff/proposal/traits/skeptical/20260702093000/gates/no-empty-promises.md",
+    "immutable://open/staff/proposal/traits/skeptical/gates/no-empty-promises.md",
   );
 });
 
@@ -79,7 +79,7 @@ Deno.test("addGate rejects malformed paths loudly", async () => {
   );
 });
 
-Deno.test("list: canon flag and distinct proposal count", async () => {
+Deno.test("add twice: second write overwrites (living proposal)", async () => {
   await freshDataDir();
   await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
   await add({
@@ -88,10 +88,20 @@ Deno.test("list: canon flag and distinct proposal count", async () => {
     prose: "v2",
     now: new Date(Date.UTC(2026, 6, 2, 10, 0, 0)),
   });
+  // The proposal main.md now holds "v2" — living proposal, not a new subtree.
+  assertEquals(
+    await readPath("proposal/traits/skeptical/main.md", {}),
+    "v2",
+  );
+});
+
+Deno.test("list: proposal flag and canon flag", async () => {
+  await freshDataDir();
+  await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
   await add({ kindArg: "trait", name: "newbie", prose: "fresh eyes", now: D });
   assertEquals(await list("trait", {}), [
-    { name: "newbie", canon: false, proposals: 1 },
-    { name: "skeptical", canon: false, proposals: 2 },
+    { name: "newbie", canon: false, proposal: true },
+    { name: "skeptical", canon: false, proposal: true },
   ]);
 });
 
@@ -99,7 +109,7 @@ Deno.test("readPath returns the body; misses throw", async () => {
   await freshDataDir();
   await add({ kindArg: "trait", name: "skeptical", prose: "the body", now: D });
   assertEquals(
-    await readPath("proposal/traits/skeptical/20260702093000/main.md", {}),
+    await readPath("proposal/traits/skeptical/main.md", {}),
     "the body",
   );
   await assertRejects(
@@ -109,43 +119,40 @@ Deno.test("readPath returns the body; misses throw", async () => {
   );
 });
 
-Deno.test("promote: latest proposal subtree materializes canon", async () => {
+Deno.test("promote: living proposal (main + gate) copies to canon", async () => {
   await freshDataDir();
+  // v1 then v2 — second add overwrites the living proposal.
   await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
-  const later = new Date(Date.UTC(2026, 6, 2, 10, 0, 0));
-  await add({ kindArg: "trait", name: "skeptical", prose: "v2", now: later });
+  await add({
+    kindArg: "trait",
+    name: "skeptical",
+    prose: "v2",
+    now: new Date(Date.UTC(2026, 6, 2, 10, 0, 0)),
+  });
   await addGate({
     path: "trait/skeptical/no-empty-promises",
     prose: "gate body",
-    now: later,
+    now: new Date(Date.UTC(2026, 6, 2, 10, 0, 0)),
   });
 
-  const res = await promote("trait", "skeptical", undefined, {});
-  assertEquals(res.ts, "20260702100000");
+  const res = await promote("trait", "skeptical", {});
   assertEquals(res.written.sort(), [
     "immutable://open/staff/canon/traits/skeptical/gates/no-empty-promises.md",
     "immutable://open/staff/canon/traits/skeptical/main.md",
   ]);
+  // v2 must land in canon (living proposal overwrite).
   assertEquals(await readPath("canon/traits/skeptical/main.md", {}), "v2");
   assertEquals(await list("trait", {}), [
-    { name: "skeptical", canon: true, proposals: 2 },
+    { name: "skeptical", canon: true, proposal: true },
   ]);
 });
 
-Deno.test("promote: explicit ts, and loud misses", async () => {
+Deno.test("promote: no proposal rejects loudly", async () => {
   await freshDataDir();
-  await add({ kindArg: "trait", name: "skeptical", prose: "v1", now: D });
-  const res = await promote("trait", "skeptical", "20260702093000", {});
-  assertEquals(res.ts, "20260702093000");
   await assertRejects(
-    () => promote("trait", "skeptical", "20990101000000", {}),
+    () => promote("trait", "ghost", {}),
     Error,
-    "candidates",
-  );
-  await assertRejects(
-    () => promote("trait", "ghost", undefined, {}),
-    Error,
-    "no proposals",
+    "no proposal",
   );
 });
 
@@ -190,9 +197,9 @@ Deno.test("parseCastArgs: play with refs", () => {
 Deno.test("planCast: composes brief from canon refs", async () => {
   await freshDataDir();
   await add({ kindArg: "role", name: "lead-qa", prose: "you lead qa", now: D });
-  await promote("role", "lead-qa", undefined, {});
+  await promote("role", "lead-qa", {});
   await add({ kindArg: "trait", name: "skeptical", prose: "distrust", now: D });
-  await promote("trait", "skeptical", undefined, {});
+  await promote("trait", "skeptical", {});
 
   const plan = await planCast(parseCastArgs([
     "role", "lead-qa", "skeptical",
@@ -208,7 +215,7 @@ Deno.test("planCast: composes brief from canon refs", async () => {
 Deno.test("planCast: missing ref fails with near-matches", async () => {
   await freshDataDir();
   await add({ kindArg: "trait", name: "skeptical", prose: "x", now: D });
-  await promote("trait", "skeptical", undefined, {});
+  await promote("trait", "skeptical", {});
   await assertRejects(
     () => planCast(parseCastArgs(["trait", "skeptic"])),
     Error,

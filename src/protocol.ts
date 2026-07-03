@@ -6,16 +6,19 @@
  *   {root}canon/{kind}/{name}/gates/{gate}.md
  *   {root}canon/{kind}/{name}/players/{player}/role.ref
  *   {root}canon/{kind}/{name}/players/{player}/gates/{gate}.md
- *   {root}proposal/{kind}/{name}/{ts}/…            (same subtree shapes)
+ *   {root}proposal/{kind}/{name}/         — the living proposal (one per name,
+ *                                           same subtree shapes as canon)
+ *   {root}proposal/{kind}/{name}/updates/{ts}.md
+ *                                         — append-only change log (out of band)
  *   {root}sessions/{name}/{ts}-{main|update|delivery}.md
  *   {root}sessions/{name}/players/{member}/{ts}-{main|update|delivery}.md
  *   {root}sessions/{name}/gates/{gate}.md
  *   {root}sessions/{name}/assets/{path}
  *
- * where {kind} ∈ { traits, roles, plays, teams, staff }. Proposals are
- * timestamped subtrees; promotion materializes canon/ from a chosen
- * proposal. `{root}` is required by every mint helper and never
- * defaulted in this module. Zero imports, by design.
+ * where {kind} ∈ { traits, roles, plays, teams, staff }. Each name has ONE
+ * living proposal, updated in place; promotion materializes canon/ from it.
+ * `{root}` is required by every mint helper and never defaulted in this
+ * module. Zero imports, by design.
  */
 
 export const KINDS = ["traits", "roles", "plays", "teams", "staff"] as const;
@@ -145,19 +148,34 @@ export function canonUri(
   return `${root}canon/${kind}/${name}/${leafPath(leaf)}`;
 }
 
-/** Proposed primitive leaf — `{root}proposal/{kind}/{name}/{ts}/<leaf>`. */
+/** Living proposal leaf — `{root}proposal/{kind}/{name}/<leaf>`. */
 export function proposalUri(
   root: string,
   kind: Kind,
   name: string,
-  ts: string,
   leaf: PrimitiveLeaf = { type: "main" },
 ): string {
   requireRoot(root);
   requireKind(kind);
   requireName("name", name);
-  requireTs(ts);
-  return `${root}proposal/${kind}/${name}/${ts}/${leafPath(leaf)}`;
+  return `${root}proposal/${kind}/${name}/${leafPath(leaf)}`;
+}
+
+/**
+ * Proposal change-log leaf — `{root}proposal/{kind}/{name}/updates/{ts}.md`.
+ * Append-only; one leaf per write; out of band from the living proposal.
+ */
+export function proposalUpdateUri(
+  root: string,
+  kind: Kind,
+  name: string,
+  date: Date = new Date(),
+): string {
+  requireRoot(root);
+  requireKind(kind);
+  requireName("name", name);
+  const ts = formatTs(date);
+  return `${root}proposal/${kind}/${name}/updates/${ts}.md`;
 }
 
 /**
@@ -215,7 +233,8 @@ export function sessionAssetUri(
 
 export type ParsedUri =
   | { at: "canon"; kind: Kind; name: string; leaf: PrimitiveLeaf }
-  | { at: "proposal"; kind: Kind; name: string; ts: string; leaf: PrimitiveLeaf }
+  | { at: "proposal"; kind: Kind; name: string; leaf: PrimitiveLeaf }
+  | { at: "proposal-update"; kind: Kind; name: string; ts: string }
   | { at: "session"; session: string; ts: string; leaf: SessionLeaf; player?: string }
   | { at: "session-gate"; session: string; gate: string }
   | { at: "session-asset"; session: string; path: string };
@@ -253,10 +272,17 @@ export function parseUri(root: string, uri: string): ParsedUri | null {
       const leaf = parsePrimitiveLeaf(parts.slice(3));
       return leaf ? { at: "canon", kind, name, leaf } : null;
     }
-    const ts = parts[3];
-    if (!isValidTs(ts)) return null;
-    const leaf = parsePrimitiveLeaf(parts.slice(4));
-    return leaf ? { at: "proposal", kind, name, ts, leaf } : null;
+    // updates/ is the out-of-band change log — match before generic leaf parse.
+    if (parts[3] === "updates") {
+      if (parts.length !== 5) return null;
+      const tsMd = parts[4];
+      if (!tsMd.endsWith(".md")) return null;
+      const ts = tsMd.slice(0, -3);
+      if (!isValidTs(ts)) return null;
+      return { at: "proposal-update", kind, name, ts };
+    }
+    const leaf = parsePrimitiveLeaf(parts.slice(3));
+    return leaf ? { at: "proposal", kind, name, leaf } : null;
   }
 
   if (head === "sessions") {

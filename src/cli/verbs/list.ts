@@ -1,5 +1,5 @@
 /**
- * `staff list <kind>` — canon names plus pending-proposal counts.
+ * `staff list <kind>` — canon names plus proposal-pending flag.
  * All listing goes through fn=find&format=uris (see rig-loader notes).
  */
 
@@ -15,7 +15,7 @@ import { resolveKind } from "./add.ts";
 export interface ListEntry {
   name: string;
   canon: boolean;
-  proposals: number;
+  proposal: boolean;
 }
 
 export async function kindNames(rig: RigLike, kind: Kind): Promise<string[]> {
@@ -36,18 +36,18 @@ export async function list(
   const { rig } = await loadStaffRig({ explicit: opts.rig });
 
   const canonNames = new Set(await kindNames(rig, kind));
-  const proposalTs = new Map<string, Set<string>>();
+  const proposalNames = new Set<string>();
   for (const u of await findUris(rig, `${STAFF_ROOT}proposal/${kind}/`)) {
     const p = parseUri(STAFF_ROOT, u);
+    // Only count real proposal leaves (not update-log leaves).
     if (p?.at !== "proposal" || p.kind !== kind) continue;
-    if (!proposalTs.has(p.name)) proposalTs.set(p.name, new Set());
-    proposalTs.get(p.name)!.add(p.ts);
+    proposalNames.add(p.name);
   }
 
-  const names = [...new Set([...canonNames, ...proposalTs.keys()])].sort();
+  const names = [...new Set([...canonNames, ...proposalNames])].sort();
   return names.map((name) => ({
     name,
     canon: canonNames.has(name),
-    proposals: proposalTs.get(name)?.size ?? 0,
+    proposal: proposalNames.has(name),
   }));
 }

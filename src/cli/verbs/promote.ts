@@ -1,8 +1,8 @@
 /**
- * `staff promote <kind> <name> [<ts>]` — the builder's act: materialize
- * canon/{kind}/{name}/ from one proposal subtree. Reads each proposal
- * leaf individually (never fn=full — see rig-loader notes) and receives
- * it at the equivalent canon URI.
+ * `staff promote <kind> <name>` — the builder's act: materialize
+ * canon/{kind}/{name}/ from the living proposal. Skips update-log leaves
+ * (proposal-update). Reads each proposal leaf individually (never fn=full —
+ * see rig-loader notes) and receives it at the equivalent canon URI.
  */
 
 import {
@@ -17,36 +17,28 @@ import { resolveKind } from "./add.ts";
 export async function promote(
   kindArg: string,
   name: string,
-  tsArg: string | undefined,
   opts: { rig?: string },
-): Promise<{ ts: string; written: string[] }> {
+): Promise<{ written: string[] }> {
   const kind = resolveKind(kindArg);
   if (!isValidName(name)) throw new Error(`invalid name: ${name}`);
   const { rig } = await loadStaffRig({ explicit: opts.rig });
 
   const uris = await findUris(rig, `${STAFF_ROOT}proposal/${kind}/${name}/`);
-  const byTs = new Map<string, Array<{ uri: string; leaf: PrimitiveLeaf }>>();
+  const leaves: Array<{ uri: string; leaf: PrimitiveLeaf }> = [];
   for (const uri of uris) {
     const p = parseUri(STAFF_ROOT, uri);
-    if (p?.at !== "proposal" || p.kind !== kind || p.name !== name) continue;
-    if (!byTs.has(p.ts)) byTs.set(p.ts, []);
-    byTs.get(p.ts)!.push({ uri, leaf: p.leaf });
+    if (!p) continue;
+    // Skip update-log leaves — they are out of band.
+    if (p.at === "proposal-update") continue;
+    if (p.at !== "proposal" || p.kind !== kind || p.name !== name) continue;
+    leaves.push({ uri, leaf: p.leaf });
   }
-  if (byTs.size === 0) throw new Error(`no proposals for ${kind}/${name}`);
-
-  const candidates = [...byTs.keys()].sort();
-  const ts = tsArg ?? candidates[candidates.length - 1];
-  const chosen = byTs.get(ts);
-  if (!chosen) {
-    throw new Error(
-      `no proposal ${ts} for ${kind}/${name} — candidates: ${
-        candidates.join(", ")
-      }`,
-    );
+  if (leaves.length === 0) {
+    throw new Error(`no proposal for ${kind}/${name}`);
   }
 
   const written: string[] = [];
-  for (const { uri, leaf } of chosen) {
+  for (const { uri, leaf } of leaves) {
     const [row] = await rig.read([uri]);
     const payload = row?.[1];
     if (payload === undefined || payload === null) {
@@ -61,5 +53,5 @@ export async function promote(
     }
     written.push(target);
   }
-  return { ts, written };
+  return { written };
 }

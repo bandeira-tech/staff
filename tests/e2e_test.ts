@@ -103,17 +103,26 @@ Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
   assert(add.stdout.startsWith("✓ "), `stdout does not start with ✓: ${add.stdout}`);
   assertStringIncludes(add.stdout, "proposal/traits/skeptical/");
 
-  // list trait — one proposal pending, no canon yet
+  // list trait — proposal pending, no canon yet
   const list = await runStaff(["list", "trait"], { home });
   assertEquals(list.code, 0, `list stderr: ${list.stderr}`);
   assertStringIncludes(list.stdout, "skeptical");
-  assertStringIncludes(list.stdout, "1 proposal(s) pending");
+  assertStringIncludes(list.stdout, "proposal pending");
 
-  // promote
+  // add gate — can happen before promote now (living proposal, no ts race)
+  const addGate = await runStaff(
+    ["add", "gate", "trait/skeptical/no-empty-promises", "gate body"],
+    { home },
+  );
+  assertEquals(addGate.code, 0, `add gate stderr: ${addGate.stderr}`);
+  assertStringIncludes(addGate.stdout, "gates/no-empty-promises.md");
+
+  // promote — must copy BOTH main.md and the gate (regression guard)
   const promote = await runStaff(["promote", "trait", "skeptical"], { home });
   assertEquals(promote.code, 0, `promote stderr: ${promote.stderr}`);
-  assertStringIncludes(promote.stdout, "✓ promoted trait/skeptical @");
+  assertStringIncludes(promote.stdout, "✓ promoted trait/skeptical");
   assertStringIncludes(promote.stdout, "canon/traits/skeptical/main.md");
+  assertStringIncludes(promote.stdout, "canon/traits/skeptical/gates/no-empty-promises.md");
 
   // read canon — body must round-trip exactly
   const read = await runStaff(
@@ -122,18 +131,6 @@ Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
   );
   assertEquals(read.code, 0, `read stderr: ${read.stderr}`);
   assertEquals(read.stdout.trim(), "You don't trust...");
-
-  // add gate — AFTER promote/read on purpose: `add` mints a
-  // second-granularity {ts}; a gate added in a different second creates a
-  // second proposal subtree, which would flake the "1 proposal(s) pending"
-  // assertion and make promote pick a gate-only (main.md-less) subtree on
-  // slow runners (observed in CI).
-  const addGate = await runStaff(
-    ["add", "gate", "trait/skeptical/no-empty-promises", "gate body"],
-    { home },
-  );
-  assertEquals(addGate.code, 0, `add gate stderr: ${addGate.stderr}`);
-  assertStringIncludes(addGate.stdout, "gates/no-empty-promises.md");
 });
 
 // ─── 3. gate usage check fires before stdin is consumed ──────────────────────
@@ -288,6 +285,21 @@ Deno.test("e2e: transparent tree — path is URI (b3nd-save 0.13 regression guar
     "canon file content must round-trip exactly",
   );
 
+  // The living proposal file path is now at the flat location (no ts dir).
+  assertEquals(
+    await Deno.readTextFile(`${dataDir}/proposal/traits/skeptical/main.md`),
+    "You don't trust...",
+    "proposal file must live at proposal/traits/skeptical/main.md (no ts dir)",
+  );
+
+  // canon must NOT have an updates/ dir (update log stays in proposal/).
+  let canonUpdatesExists = false;
+  try {
+    await Deno.stat(`${dataDir}/canon/traits/skeptical/updates`);
+    canonUpdatesExists = true;
+  } catch { /* expected — updates/ must not exist under canon */ }
+  assert(!canonUpdatesExists, "canon must not contain updates/ dir after promote");
+
   // No immutable_open/ directory may exist (old layout is gone)
   let oldLayoutExists = false;
   try {
@@ -352,18 +364,16 @@ Deno.test("e2e: staff add writes into tree-resolved root (no STAFF_DATA_DIR)", a
   assertEquals(r.code, 0, `stderr: ${r.stderr}`);
   assertStringIncludes(r.stdout, "✓ ");
 
-  // The file must live under proj/staff/proposal/traits/walk-smoke/{ts}/main.md
-  const traitsDir = `${proj}/staff/proposal/traits/walk-smoke`;
-  let found = false;
-  for await (const entry of Deno.readDir(traitsDir)) {
-    try {
-      const body = await Deno.readTextFile(
-        `${traitsDir}/${entry.name}/main.md`,
-      );
-      if (body === "walk body") found = true;
-    } catch { /* skip */ }
+  // The living proposal file must live at proj/staff/proposal/traits/walk-smoke/main.md
+  // (no ts dir — flat shape).
+  const proposalFile = `${proj}/staff/proposal/traits/walk-smoke/main.md`;
+  let content: string;
+  try {
+    content = await Deno.readTextFile(proposalFile);
+  } catch {
+    throw new Error(`proposal file not found at ${proposalFile}`);
   }
-  assertEquals(found, true, "proposal file not found under proj/staff/");
+  assertEquals(content, "walk body", "proposal file content must round-trip exactly");
 });
 
 // ─── 12. staff list (bare) — all-kinds overview, 4 per kind ──────────────────

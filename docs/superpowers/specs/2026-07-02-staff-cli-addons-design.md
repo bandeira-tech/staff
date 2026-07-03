@@ -5,6 +5,27 @@
 > Delivered as a single PR ("one big PR, one frame from the user
 > standpoint").
 
+## Amendment — living proposals (ratified 2026-07-03)
+
+The timestamped-subtree proposal grammar is superseded. The sections below
+that describe `proposal/{kind}/{name}/{ts}/` shapes are historical — the
+ratified shape is:
+
+- **`proposal/{kind}/{name}/`** — ONE living proposal per name, shaped exactly
+  like canon (`main.md`, `gates/{gate}.md`, `players/{player}/…`), updated
+  in place. Each CLI write to the proposal also appends one update leaf:
+- **`proposal/{kind}/{name}/updates/{ts}.md`** — append-only change log (out
+  of band; body: one line, e.g. `main.md updated` or
+  `gates/no-empty-promises.md added`).
+- **`promote <kind> <name>`** — materializes canon from the living proposal
+  (everything except `updates/`). The `<ts>` argument is GONE.
+
+Structural benefit: the add+gate second-boundary race is eliminated — both
+leaves land in the same flat directory regardless of clock tick.
+
+The sections below describing `{ts}/` subtrees and explicit-ts promotion are
+superseded by this amendment.
+
 ## What this pass is
 
 STAFF becomes a three-layer product, each layer complete without the one

@@ -174,7 +174,10 @@ Code that hard-codes a root is a bug.
 
 ```
 {root}/canon/{kind}/{name}/           — a canonized primitive
-{root}/proposal/{kind}/{name}/{ts}/   — a proposed primitive (timestamped)
+{root}/proposal/{kind}/{name}/        — the living proposal (one per name,
+                                        same subtree shape as canon)
+{root}/proposal/{kind}/{name}/updates/{ts}.md
+                                      — append-only change log (out of band)
 {root}/sessions/{name}/               — a session log
 ```
 
@@ -203,7 +206,7 @@ where
 and
 
 - `{name}` — `[a-z0-9][a-z0-9-]{0,47}`.
-- `{ts}` — `YYYYMMDDhhmmss` UTC.
+- `{ts}` — `YYYYMMDDhhmmss` UTC (session leaves and proposal update log only).
 
 A malformed path is invisible — the convention silently ignores it.
 
@@ -214,7 +217,7 @@ listing. Nothing else:
 
 | Action | What you do |
 |--------|-------------|
-| capture trait/role/play/team/staff | write under `{root}/proposal/{kind}/{name}/{ts}/` (see *Proposals, not promotions*) |
+| capture trait/role/play/team/staff | write under `{root}/proposal/{kind}/{name}/` (see *Proposals, not promotions*) |
 | read one | read the file at its path |
 | list a kind | list the directories under `{root}/{kind}/` |
 | open a session | write `{root}/sessions/{name}/{ts}-main.md` |
@@ -239,19 +242,24 @@ and disambiguate with the user — typos silently fork the log.
 ### Proposals, not promotions
 
 Never write a proposed trait, role, play, team, or staff into `canon/`.
-Communicate the proposal to the builder; if it's worth persisting, capture it as
-its own timestamped subtree under `proposal/`:
+Communicate the proposal to the builder; if it's worth persisting, capture it
+as the living proposal under `proposal/`:
 
 ```
-{root}/proposal/{kind}/{name}/{ts}/     (meta, main.md and/or gates/, …)
+{root}/proposal/{kind}/{name}/          (main.md and/or gates/, same as canon)
+{root}/proposal/{kind}/{name}/updates/{ts}.md   (change log, out of band)
 ```
 
 The `{name}` may not exist under `canon/` yet — the proposal can be the first
-thing anywhere for that name. Promotion is the builder's call, not yours: it
-materializes `{root}/canon/{kind}/{name}/` from a chosen proposal. Multiple
-chiefs may propose against the same `{name}` over time; each `{ts}/` subtree
-stands alone. This canon-vs-proposal split is the **one structural change** the
-layout requires (see *Gates and players → what actually has to change*).
+thing anywhere for that name. Each write to the proposal also appends one
+`updates/{ts}.md` leaf (body: one line saying what was written, e.g.
+`main.md updated` or `gates/no-empty-promises.md added`); this is the history
+log and is out of band — not copied on promotion. Multiple chiefs converge on
+the same living proposal; the last write wins. Promotion is the builder's call,
+not yours: it materializes `{root}/canon/{kind}/{name}/` from the living
+proposal (everything except `updates/`). This canon-vs-proposal split is the
+**one structural change** the layout requires (see *Gates and players → what
+actually has to change*).
 
 ### AVOID these errors when capturing traits, roles, plays, and teams
 
@@ -420,7 +428,7 @@ grammar enforced for you.
 |--------|-----|
 | capture (propose) a primitive | `staff add <kind> <name> [<prose>\|-]` |
 | propose a gate on one | `staff add gate <kind>/<name>/<gate> [<prose>\|-]` |
-| promote (builder's call only) | `staff promote <kind> <name> [<ts>]` |
+| promote (builder's call only) | `staff promote <kind> <name>` |
 | list a kind | `staff list <kind>` |
 | read one path | `staff read <path>` |
 | dispatch a session | `staff cast play\|role\|trait\|team … [--room <room>] [--session <name>] [-- <claude args>]` |

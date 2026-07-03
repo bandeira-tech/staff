@@ -23,7 +23,7 @@ const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
 Usage:
   staff add <kind> <name> [<prose>|-]        propose a primitive (kind: trait|role|play|team|staff)
   staff add gate <kind>/<name>/<gate> [<prose>|-]
-  staff promote <kind> <name> [<ts>]         materialize canon/ from a proposal
+  staff promote <kind> <name>               materialize canon/ from the living proposal
   staff list [<kind>]                        canon names + pending proposals (bare: overview of all kinds, 4 per kind)
   staff read <path>                          read one path under the staff root
   staff cast play|role|trait|team …          compose refs and spawn a claude session
@@ -183,7 +183,7 @@ async function dispatch(argv: string[]): Promise<number> {
       const entryLine = (e: Awaited<ReturnType<typeof list>>[number]): string => {
         const marks = [
           e.canon ? "canon" : "     ",
-          e.proposals > 0 ? `${e.proposals} proposal(s) pending` : "",
+          e.proposal ? "proposal pending" : "",
         ].filter(Boolean).join("  ");
         return `${e.name.padEnd(24)} ${marks}`;
       };
@@ -233,10 +233,10 @@ async function dispatch(argv: string[]): Promise<number> {
     }
     case "promote": {
       if (!args[0] || !args[1]) {
-        throw new Error("usage: staff promote <kind> <name> [<ts>]");
+        throw new Error("usage: staff promote <kind> <name>");
       }
-      const res = await promote(args[0], args[1], args[2], { rig });
-      console.log(`✓ promoted ${args[0]}/${args[1]} @ ${res.ts}`);
+      const res = await promote(args[0], args[1], { rig });
+      console.log(`✓ promoted ${args[0]}/${args[1]}`);
       for (const uri of res.written) console.log(`  ${uri}`);
       return 0;
     }
