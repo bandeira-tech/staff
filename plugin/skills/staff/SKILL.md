@@ -378,7 +378,7 @@ ref to something that doesn't exist.
 
 **What actually has to change — and what doesn't.** The *one* real migration
 from the old layout is the bucket split: canonized primitives move under
-`canon/`, proposals under `proposal/{…}/{ts}/`. Everything else is **additive**.
+`canon/`, proposals under `proposal/{…}/`. Everything else is **additive**.
 A `main.md` prose body remains valid — keep it, grow it, and add a `gates/` file
 beside it only when a checkpoint earns being executable; add a `players/` when a
 team or session wants an explicit roster. A reader handles both formats with no

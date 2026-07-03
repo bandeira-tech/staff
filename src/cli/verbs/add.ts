@@ -34,12 +34,17 @@ export async function add(opts: {
   const uri = proposalUri(STAFF_ROOT, kind, opts.name);
   const updateUri = proposalUpdateUri(STAFF_ROOT, kind, opts.name, now);
   const { rig: loaded } = await loadStaffRig({ explicit: opts.rig });
-  const [mainRes, _updateRes] = await receiveSettled(loaded, [
+  const [mainRes, updateRes] = await receiveSettled(loaded, [
     [uri, opts.prose],
     [updateUri, "main.md updated"],
   ]);
   if (!mainRes?.accepted) {
     throw new Error(`write rejected: ${uri} — ${mainRes?.error ?? "no reason given"}`);
+  }
+  if (!updateRes?.accepted) {
+    throw new Error(
+      `update log write rejected: ${updateUri} — ${updateRes?.error ?? "no reason given"}`,
+    );
   }
   return { uri };
 }
@@ -60,12 +65,17 @@ export async function addGate(opts: {
   const uri = proposalUri(STAFF_ROOT, kind, name, { type: "gate", gate });
   const updateUri = proposalUpdateUri(STAFF_ROOT, kind, name, now);
   const { rig: loaded } = await loadStaffRig({ explicit: opts.rig });
-  const [gateRes, _updateRes] = await receiveSettled(loaded, [
+  const [gateRes, updateRes] = await receiveSettled(loaded, [
     [uri, opts.prose],
     [updateUri, `gates/${gate}.md added`],
   ]);
   if (!gateRes?.accepted) {
     throw new Error(`write rejected: ${uri} — ${gateRes?.error ?? "no reason given"}`);
+  }
+  if (!updateRes?.accepted) {
+    throw new Error(
+      `update log write rejected: ${updateUri} — ${updateRes?.error ?? "no reason given"}`,
+    );
   }
   return { uri };
 }
