@@ -103,14 +103,6 @@ Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
   assert(add.stdout.startsWith("✓ "), `stdout does not start with ✓: ${add.stdout}`);
   assertStringIncludes(add.stdout, "proposal/traits/skeptical/");
 
-  // add gate
-  const addGate = await runStaff(
-    ["add", "gate", "trait/skeptical/no-empty-promises", "gate body"],
-    { home },
-  );
-  assertEquals(addGate.code, 0, `add gate stderr: ${addGate.stderr}`);
-  assertStringIncludes(addGate.stdout, "gates/no-empty-promises.md");
-
   // list trait — one proposal pending, no canon yet
   const list = await runStaff(["list", "trait"], { home });
   assertEquals(list.code, 0, `list stderr: ${list.stderr}`);
@@ -130,6 +122,18 @@ Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
   );
   assertEquals(read.code, 0, `read stderr: ${read.stderr}`);
   assertEquals(read.stdout.trim(), "You don't trust...");
+
+  // add gate — AFTER promote/read on purpose: `add` mints a
+  // second-granularity {ts}; a gate added in a different second creates a
+  // second proposal subtree, which would flake the "1 proposal(s) pending"
+  // assertion and make promote pick a gate-only (main.md-less) subtree on
+  // slow runners (observed in CI).
+  const addGate = await runStaff(
+    ["add", "gate", "trait/skeptical/no-empty-promises", "gate body"],
+    { home },
+  );
+  assertEquals(addGate.code, 0, `add gate stderr: ${addGate.stderr}`);
+  assertStringIncludes(addGate.stdout, "gates/no-empty-promises.md");
 });
 
 // ─── 3. gate usage check fires before stdin is consumed ──────────────────────
