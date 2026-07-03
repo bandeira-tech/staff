@@ -9,7 +9,7 @@
  * Data dir resolves in this order:
  *   1. $STAFF_ROOT
  *   2. $STAFF_DATA_DIR (back-compat alias)
- *   3. ~/.staff
+ *   3. ~/Staff
  *
  * The rig store is a TRANSPARENT bare tree: the store URI IS the
  * relative filesystem path (no `immutable_open/` prefix, no `.bin`
@@ -110,7 +110,7 @@ function resolveDataDir(): string {
   if (env) return env;
   const home = Deno.env.get("HOME");
   if (!home) throw new Error("STAFF_ROOT, STAFF_DATA_DIR unset and HOME unset");
-  return `${home}/.staff`;
+  return `${home}/Staff`;
 }
 
 function fsExecutor(): FsExecutor {

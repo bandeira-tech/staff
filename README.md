@@ -32,7 +32,8 @@ Install:
 
 First run:
 
-    staff rig                                               # health: which rig, where data lives (~/.staff)
+    staff rig                                               # health: which rig, where data lives (~/Staff, or the nearest staff|.staff tree)
+    staff root   # where your data lives — public by default; `mv staff .staff` any time to hide it
     staff add trait skeptical "You don't trust work being presented to you."
     staff list trait                                        # 1 proposal pending
     staff promote trait skeptical                          # proposals are yours to promote to canon
@@ -46,7 +47,7 @@ Pass 2 status (2026-07-02)
 
 Pass 2 ships the program: a `staff` CLI (`add`, `promote`, `list`,
 `read`, `cast`, `rig`) that loads a b3nd rig in-process — bundled
-FsStore rig by default (`~/.staff`), user-pluggable via `staff rig`.
+FsStore rig by default (`~/Staff`), user-pluggable via `staff rig`.
 `add` writes proposals; `promote` is the builder's act; `cast` composes
 refs into a brief, records the session, and spawns a Claude Code
 session (`--room` writes a cc-chat room URI into the brief — rooms are

@@ -1,15 +1,20 @@
 /**
- * CLI config — `~/.staff/config.json`. One knob today: the default rig.
+ * CLI config — `${XDG_CONFIG_HOME:-$HOME/.config}/staff/config.json`.
  */
 
 export interface StaffCliConfig {
   rig?: string;
+  userRoot?: string; // default applied at read site: `${HOME}/Staff`
+  alwaysUserRoot?: boolean;
+  roots?: Record<string, string>; // abs folder → abs root
 }
 
 export function configDir(): string {
+  const xdg = Deno.env.get("XDG_CONFIG_HOME");
+  if (xdg) return `${xdg}/staff`;
   const home = Deno.env.get("HOME");
-  if (!home) throw new Error("HOME is unset — cannot locate ~/.staff");
-  return `${home}/.staff`;
+  if (!home) throw new Error("HOME is unset — cannot locate config dir");
+  return `${home}/.config/staff`;
 }
 
 export function configPath(): string {

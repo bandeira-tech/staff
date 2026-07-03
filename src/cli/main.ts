@@ -5,7 +5,7 @@
  * Install:
  *   deno install --global -A -n staff jsr:@bandeira-tech/staff/cli
  *
- * Verbs: add, promote, list, read, cast, rig. Run `staff --help`.
+ * Verbs: add, promote, list, read, cast, rig, root. Run `staff --help`.
  */
 
 import { add, addGate } from "./verbs/add.ts";
@@ -15,6 +15,8 @@ import { list } from "./verbs/list.ts";
 import { readPath } from "./verbs/read.ts";
 import { promote } from "./verbs/promote.ts";
 import { executeCast, parseCastArgs } from "./verbs/cast.ts";
+import { resolveRoot, createTreeSkeleton } from "./root.ts";
+import { loadCliConfig, saveCliConfig } from "./config.ts";
 
 const HELP = `staff — Claude as Chief of Staff (STAFF by BANDEIRA✶TECH)
 
@@ -26,6 +28,7 @@ Usage:
   staff read <path>                          read one path under the staff root
   staff cast play|role|trait|team …          compose refs and spawn a claude session
   staff rig [<path|url>]                     show / set the resolved rig
+  staff root [<path>|user [--always]]        show / set the STAFF root for this folder
 
 Universal flags:
   --rig <path|url>    override the resolved rig for this run
@@ -59,9 +62,19 @@ export function extractFlag(
   return [undefined, argv];
 }
 
+// Verbs that need a resolved root before loading the rig.
+const DATA_VERBS = new Set(["add", "list", "read", "promote", "cast"]);
+
 async function dispatch(argv: string[]): Promise<number> {
   const [rig, rest] = extractFlag(argv, "--rig");
   const [verb, ...args] = rest;
+
+  // Pre-resolve root for data verbs (interactive if TTY; throws if unresolvable).
+  // rig/root/help handle their own root concerns.
+  if (verb !== undefined && DATA_VERBS.has(verb)) {
+    const resolution = await resolveRoot({ cwd: Deno.cwd() });
+    Deno.env.set("STAFF_ROOT", resolution.root);
+  }
 
   switch (verb) {
     case undefined:
@@ -72,18 +85,76 @@ async function dispatch(argv: string[]): Promise<number> {
       return 0;
     }
     case "rig": {
+      // Try non-interactive root resolution so the root: line is accurate.
+      let rootDesc: string;
+      try {
+        const res = await resolveRoot({ cwd: Deno.cwd(), interactive: false });
+        Deno.env.set("STAFF_ROOT", res.root);
+        rootDesc = `${res.root} (${res.origin})`;
+      } catch {
+        rootDesc = "(not set — run `staff root <path|user>`)";
+      }
       if (args[0]) {
         const path = await setRig(args[0]);
         console.log(`rig set: ${args[0]} (${path})`);
         return 0;
       }
       const info = await rigInfo({ explicit: rig });
-      console.log(`rig:      ${info.input} (${info.origin})`);
-      console.log(`data dir: ${info.dataDir}`);
+      console.log(`rig:    ${info.input} (${info.origin})`);
+      console.log(`root:   ${rootDesc}`);
       if (info.status !== undefined) {
-        console.log(`status:   ${JSON.stringify(info.status)}`);
+        console.log(`status: ${JSON.stringify(info.status)}`);
       }
-      if (info.statusError) console.log(`status:   ERROR — ${info.statusError}`);
+      if (info.statusError) console.log(`status: ERROR — ${info.statusError}`);
+      return 0;
+    }
+    case "root": {
+      const [rootArg, ...rootRest] = args;
+
+      if (!rootArg) {
+        // Non-interactive resolve and print; exit 1 with guidance if unresolvable.
+        try {
+          const resolution = await resolveRoot({
+            cwd: Deno.cwd(),
+            interactive: false,
+          });
+          console.log(`root: ${resolution.root} (${resolution.origin})`);
+        } catch (e) {
+          console.error(e instanceof Error ? e.message : String(e));
+          return 1;
+        }
+        return 0;
+      }
+
+      const config = await loadCliConfig();
+      const home = Deno.env.get("HOME") ?? "";
+      const cwd = Deno.cwd();
+
+      if (rootArg === "user") {
+        const always = rootRest.includes("--always");
+        const userRoot = config.userRoot ?? `${home}/Staff`;
+        await createTreeSkeleton(userRoot);
+        if (always) {
+          await saveCliConfig({ ...config, alwaysUserRoot: true });
+          console.log(`root: ${userRoot} (user — always-user enabled)`);
+        } else {
+          await saveCliConfig({
+            ...config,
+            roots: { ...(config.roots ?? {}), [cwd]: userRoot },
+          });
+          console.log(`root: ${userRoot} (registered)`);
+        }
+        return 0;
+      }
+
+      // Register an explicit path.
+      const absRoot = rootArg.startsWith("/") ? rootArg : `${cwd}/${rootArg}`;
+      await createTreeSkeleton(absRoot);
+      await saveCliConfig({
+        ...config,
+        roots: { ...(config.roots ?? {}), [cwd]: absRoot },
+      });
+      console.log(`root: ${absRoot} (registered)`);
       return 0;
     }
     case "add": {

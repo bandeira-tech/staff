@@ -18,7 +18,7 @@ export async function rigInfo(opts: { explicit?: string }): Promise<RigInfo> {
   const home = Deno.env.get("HOME") ?? "";
   const dataDir = Deno.env.get("STAFF_ROOT") ??
     Deno.env.get("STAFF_DATA_DIR") ??
-    `${home}/.staff`;
+    `${home}/Staff`;
   const info: RigInfo = {
     input: source.input,
     origin: source.origin,

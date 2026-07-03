@@ -159,13 +159,16 @@ hand, by any agent, with no server in the loop.
 
 Resolve once, then announce it on first use:
 
-1. `$STAFF_ROOT` if set (explicit override).
-2. Otherwise, the nearest `.staff/` directory walking up from cwd (project-local).
-3. Otherwise, `~/.staff/` — the encouraged default, so data compounds across the
-   builder's work.
+1. `$STAFF_ROOT` if set (env override; `$STAFF_DATA_DIR` is the back-compat alias).
+2. Otherwise, the nearest `staff/`, `Staff/`, or `.staff/` walking up from cwd — a
+   directory qualifies if it contains `canon/`, `proposal/`, or `sessions/`.
+3. Otherwise, a registered choice in `~/.config/staff/config.json` (key = abs folder).
+4. Otherwise, `alwaysUserRoot: true` in config → `~/Staff` (or a custom `userRoot`).
+5. Otherwise, if the terminal is interactive, the program asks once and registers the
+   choice for this folder — prefer `~/Staff` (public, Finder-visible) by default.
+6. Otherwise, error with actionable guidance.
 
-Create the resolved root lazily on first write. Code that hard-codes a root is a
-bug.
+Code that hard-codes a root is a bug.
 
 ### The grammar
 
@@ -469,7 +472,7 @@ deno install --global -A -n bnd jsr:@bandeira-tech/b3nd-cli@^0.5.0
 ```
 
 The rig's store resolves its data dir in order: `$STAFF_ROOT` →
-`$STAFF_DATA_DIR` → `~/.staff`. The rig's tree is the same human-readable tree
+`$STAFF_DATA_DIR` → `~/Staff`. The rig's tree is the same human-readable tree
 as the bare-fs convention — one root, one layout, by hand or through the
 program. If `b3nd_status` doesn't return, either `bnd` is missing or the rig
 file isn't where the launcher expects — surface that to the builder; don't fall

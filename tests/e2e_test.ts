@@ -17,25 +17,43 @@ interface RunResult {
  * Spawn `deno run -A --no-lock src/cli/main.ts <args>` in an isolated
  * home directory.  We merge the parent process env (so Deno's module cache
  * and OS-level paths stay intact) then override only the vars that control
- * staff's data location and the shell PATH.  STAFF_RIG is deleted so the
- * parent's rig configuration doesn't leak into the subprocess.
+ * staff's data location and the shell PATH.  STAFF_RIG and STAFF_ROOT are
+ * deleted so the parent's rig/root configuration doesn't leak into the
+ * subprocess.  XDG_CONFIG_HOME is isolated to opts.home so developer config
+ * never contaminates test runs.
  */
 async function runStaff(
   args: string[],
-  opts: { home: string; stdinText?: string; path?: string },
+  opts: {
+    home: string;
+    stdinText?: string;
+    path?: string;
+    cwd?: string;
+    noStaffDataDir?: boolean;
+  },
 ): Promise<RunResult> {
   const env: Record<string, string> = {
     ...Deno.env.toObject(),
     HOME: opts.home,
     STAFF_DATA_DIR: `${opts.home}/fs`,
+    XDG_CONFIG_HOME: opts.home, // isolate config per-test; overrides any parent value
     PATH: opts.path ?? Deno.env.get("PATH")!,
+    // Explicit empty-string overrides beat the process-env inheritance that
+    // Deno.Command uses — `delete` on the JS object does NOT unset a var that
+    // is already in the spawning process's env (Deno.Command env is additive).
+    // resolveRoot uses `||` not `??`, so "" is treated as "not set" and falls
+    // through to the next rung in the ladder.
+    STAFF_RIG: "",
+    STAFF_ROOT: "",
   };
-  delete env.STAFF_RIG;
-  delete env.STAFF_ROOT;
+  if (opts.noStaffDataDir) {
+    env.STAFF_DATA_DIR = "";
+  }
 
   const cmd = new Deno.Command(Deno.execPath(), {
     args: ["run", "-A", "--no-lock", MAIN, ...args],
     env,
+    cwd: opts.cwd,
     stdin: opts.stdinText === undefined ? "null" : "piped",
     stdout: "piped",
     stderr: "piped",
@@ -62,6 +80,7 @@ Deno.test("e2e: --help prints usage and exits 0", async () => {
   assertEquals(r.code, 0);
   assertStringIncludes(r.stdout, "staff — Claude as Chief of Staff");
   assertStringIncludes(r.stdout, "staff cast");
+  assertStringIncludes(r.stdout, "staff root");
 });
 
 // ─── 2. full add / gate / list / promote / read battery ─────────────────────
@@ -69,7 +88,7 @@ Deno.test("e2e: --help prints usage and exits 0", async () => {
 Deno.test("e2e: full add/gate/list/promote/read battery", async () => {
   const home = await Deno.makeTempDir();
 
-  // rig
+  // rig (env step 1 covers root; confirm no behavior change from T15)
   const rig = await runStaff(["rig"], { home });
   assertEquals(rig.code, 0, `rig stderr: ${rig.stderr}`);
   assertStringIncludes(rig.stdout, "(bundled)");
@@ -272,4 +291,73 @@ Deno.test("e2e: transparent tree — path is URI (b3nd-save 0.13 regression guar
     oldLayoutExists = true;
   } catch { /* expected — old dir must not exist */ }
   assert(!oldLayoutExists, "immutable_open/ must not exist in the transparent tree");
+});
+
+// ─── 9. root: non-interactive fail → exit 1 with guidance ───────────────────
+
+Deno.test("e2e: staff root non-interactive (null stdin) prints guidance and exits 1", async () => {
+  const home = await Deno.makeTempDir();
+  const bareDir = await Deno.makeTempDir();
+  // noStaffDataDir + no tree in bareDir → step 6 fail
+  const r = await runStaff(["root"], {
+    home,
+    cwd: bareDir,
+    noStaffDataDir: true,
+  });
+  assertEquals(r.code, 1, `stdout: ${r.stdout}`);
+  assertStringIncludes(r.stderr, "no STAFF root");
+  assertStringIncludes(r.stderr, "$STAFF_ROOT");
+  assertStringIncludes(r.stderr, "staff root");
+});
+
+// ─── 10. root: upstream tree walk resolves via cwd ──────────────────────────
+
+Deno.test("e2e: staff root finds qualifying tree via upstream walk", async () => {
+  const home = await Deno.makeTempDir();
+  const proj = await Deno.makeTempDir();
+
+  // Create a qualifying tree at proj/staff/canon
+  await Deno.mkdir(`${proj}/staff/canon`, { recursive: true });
+  // Run from proj/sub — tree is one level up
+  await Deno.mkdir(`${proj}/sub`, { recursive: true });
+
+  const r = await runStaff(["root"], {
+    home,
+    cwd: `${proj}/sub`,
+    noStaffDataDir: true,
+  });
+  assertEquals(r.code, 0, `stderr: ${r.stderr}`);
+  assertStringIncludes(r.stdout, `${proj}/staff`);
+  assertStringIncludes(r.stdout, "tree");
+});
+
+// ─── 11. root walk: staff add writes into the tree-resolved root ─────────────
+
+Deno.test("e2e: staff add writes into tree-resolved root (no STAFF_DATA_DIR)", async () => {
+  const home = await Deno.makeTempDir();
+  const proj = await Deno.makeTempDir();
+
+  // Qualifying tree one level above sub/
+  await Deno.mkdir(`${proj}/staff/canon`, { recursive: true });
+  await Deno.mkdir(`${proj}/sub`, { recursive: true });
+
+  const r = await runStaff(
+    ["add", "trait", "walk-smoke", "walk body"],
+    { home, cwd: `${proj}/sub`, noStaffDataDir: true },
+  );
+  assertEquals(r.code, 0, `stderr: ${r.stderr}`);
+  assertStringIncludes(r.stdout, "✓ ");
+
+  // The file must live under proj/staff/proposal/traits/walk-smoke/{ts}/main.md
+  const traitsDir = `${proj}/staff/proposal/traits/walk-smoke`;
+  let found = false;
+  for await (const entry of Deno.readDir(traitsDir)) {
+    try {
+      const body = await Deno.readTextFile(
+        `${traitsDir}/${entry.name}/main.md`,
+      );
+      if (body === "walk body") found = true;
+    } catch { /* skip */ }
+  }
+  assertEquals(found, true, "proposal file not found under proj/staff/");
 });
