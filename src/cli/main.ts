@@ -24,7 +24,7 @@ Usage:
   staff add <kind> <name> [<prose>|-]        propose a primitive (kind: trait|role|play|team|staff)
   staff add gate <kind>/<name>/<gate> [<prose>|-]
   staff promote <kind> <name> [<ts>]         materialize canon/ from a proposal
-  staff list <kind>                          canon names + pending proposals
+  staff list [<kind>]                        canon names + pending proposals (bare: overview of all kinds, 4 per kind)
   staff read <path>                          read one path under the staff root
   staff cast play|role|trait|team …          compose refs and spawn a claude session
   staff rig [<path|url>]                     show / set the resolved rig
@@ -179,14 +179,49 @@ async function dispatch(argv: string[]): Promise<number> {
       return 0;
     }
     case "list": {
-      if (!args[0]) throw new Error("usage: staff list <kind>");
-      const entries = await list(args[0], { rig });
-      for (const e of entries) {
+      // Helper: format a single entry line (reusable for both full and overview paths).
+      const entryLine = (e: Awaited<ReturnType<typeof list>>[number]): string => {
         const marks = [
           e.canon ? "canon" : "     ",
           e.proposals > 0 ? `${e.proposals} proposal(s) pending` : "",
         ].filter(Boolean).join("  ");
-        console.log(`${e.name.padEnd(24)} ${marks}`);
+        return `${e.name.padEnd(24)} ${marks}`;
+      };
+
+      if (!args[0]) {
+        // Bare `staff list` — overview of all kinds, 4 entries per kind.
+        const kindPairs = [
+          ["trait", "traits"],
+          ["role", "roles"],
+          ["play", "plays"],
+          ["team", "teams"],
+          ["staff", "staff"],
+        ] as const;
+
+        for (const [singKind, plurKind] of kindPairs) {
+          const entries = await list(singKind, { rig });
+          console.log(`${plurKind}:`);
+          if (entries.length === 0) {
+            console.log("  (none)");
+          } else {
+            const shown = entries.slice(0, 4);
+            for (const e of shown) {
+              console.log(`  ${entryLine(e)}`);
+            }
+            if (entries.length > 4) {
+              console.log(
+                `  … and ${entries.length - 4} more — staff list ${singKind}`,
+              );
+            }
+          }
+        }
+        return 0;
+      }
+
+      // Full listing for a specific kind.
+      const entries = await list(args[0], { rig });
+      for (const e of entries) {
+        console.log(entryLine(e));
       }
       if (entries.length === 0) console.log("(none)");
       return 0;

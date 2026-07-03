@@ -361,3 +361,60 @@ Deno.test("e2e: staff add writes into tree-resolved root (no STAFF_DATA_DIR)", a
   }
   assertEquals(found, true, "proposal file not found under proj/staff/");
 });
+
+// ─── 12. staff list (bare) — all-kinds overview, 4 per kind ──────────────────
+
+Deno.test("e2e: bare staff list shows overview of all kinds, 4 per kind", async () => {
+  const home = await Deno.makeTempDir();
+
+  // Seed: five traits (t1..t5) in alphabetical order, plus one role.
+  for (let i = 1; i <= 5; i++) {
+    const r = await runStaff(
+      ["add", "trait", `t${i}`, `body ${i}`],
+      { home },
+    );
+    assertEquals(r.code, 0, `add t${i} stderr: ${r.stderr}`);
+  }
+
+  const roleR = await runStaff(
+    ["add", "role", "lead-qa", "qa role body"],
+    { home },
+  );
+  assertEquals(roleR.code, 0, `add role stderr: ${roleR.stderr}`);
+
+  // `staff list` (bare) — should show overview
+  const overview = await runStaff(["list"], { home });
+  assertEquals(overview.code, 0, `overview stderr: ${overview.stderr}`);
+
+  // Must include section headers
+  assertStringIncludes(overview.stdout, "traits:");
+  assertStringIncludes(overview.stdout, "roles:");
+  assertStringIncludes(overview.stdout, "plays:");
+
+  // Must include t1 and t4 (first 4 traits alphabetically)
+  assertStringIncludes(overview.stdout, "t1");
+  assertStringIncludes(overview.stdout, "t4");
+
+  // Must NOT include t5 (fifth trait, truncated)
+  assert(
+    !overview.stdout.includes("t5"),
+    "t5 should not appear in overview (>4 shown)",
+  );
+
+  // Must include the drill-down hint
+  assertStringIncludes(
+    overview.stdout,
+    "… and 1 more — staff list trait",
+  );
+
+  // Must include lead-qa
+  assertStringIncludes(overview.stdout, "lead-qa");
+
+  // Empty kinds should show (none)
+  assertStringIncludes(overview.stdout, "(none)");
+
+  // `staff list trait` (full path) — should include t5
+  const full = await runStaff(["list", "trait"], { home });
+  assertEquals(full.code, 0, `full stderr: ${full.stderr}`);
+  assertStringIncludes(full.stdout, "t5");
+});
