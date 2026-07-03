@@ -4,7 +4,7 @@
  * Resolution order:
  *   1. Explicit `--rig <path|url>`
  *   2. $STAFF_RIG
- *   3. `rig` in ~/.staff/config.json (set via `staff rig <path>`)
+ *   3. `rig` in ~/.config/staff/config.json (set via `staff rig <path>`)
  *   4. Bundled default (../rig.ts — bare tree at $STAFF_ROOT or $STAFF_DATA_DIR or ~/Staff)
  *
  * Module convention (duck-typed default export), same as `bnd`:
@@ -55,7 +55,7 @@ export function isRigLike(x: unknown): x is RigLike {
 export async function loadStaffRig(
   opts: { explicit?: string },
 ): Promise<LoadedRig> {
-  const env = Deno.env.get("STAFF_RIG") ?? undefined;
+  const env = Deno.env.get("STAFF_RIG") || undefined;
   const config = await loadCliConfig();
   const chosen: { input: string; origin: RigOrigin } = opts.explicit
     ? { input: opts.explicit, origin: "explicit" }
