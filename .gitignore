@@ -5,3 +5,8 @@ node_modules/
 *.log
 .env
 .env.local
+
+# session/coordination scratch
+.cc-chat/
+.superpowers/
+.claude/*.local.md

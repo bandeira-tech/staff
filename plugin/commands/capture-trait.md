@@ -36,11 +36,14 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
 
 3. **Communicate, then capture as proposal.**
    Surface what you'd capture and why before writing anything. Never
-   write `main.md` directly — promotion is the builder's call. If they
-   want it persisted, write a proposal at
-   `<root>traits/<name>/<ts>-proposal.md`. If a b3nd rig is wired, the
-   equivalent is
-   `b3nd_receive { messages: [[ "<root>traits/<name>/<ts>-proposal.md", "<body>" ]] }`.
+   write into `canon/` directly — promotion is the builder's call. If
+   they want it persisted, write (or update in place) the living proposal at
+   `<root>proposal/traits/<name>/main.md` (the prose body — and add a
+   `gates/` file beside it if a cue earns being an executable checkpoint; see
+   the SKILL's "Gates and cast"). Also append one update-log leaf at
+   `<root>proposal/traits/<name>/updates/<ts>.md` (body: `main.md updated`).
+   If a b3nd rig is wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>proposal/traits/<name>/main.md", "<body>" ], [ "<root>proposal/traits/<name>/updates/<ts>.md", "main.md updated" ]] }`.
    See the SKILL's "Proposals, not promotions".
 
 4. **Optionally log inside a session.**
@@ -54,3 +57,7 @@ primitives alongside `roles`, `plays`, `teams`, `staff`, and
 Disposition: meet-them-where-they-are. If the prose is rough, sharpen
 it lightly — don't enforce a starting point that isn't there. Don't
 overfit a trait to the role or theme of the context where it surfaced.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

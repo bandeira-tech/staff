@@ -159,24 +159,34 @@ hand, by any agent, with no server in the loop.
 
 Resolve once, then announce it on first use:
 
-1. `$STAFF_ROOT` if set (explicit override).
-2. Otherwise, the nearest `.staff/` directory walking up from cwd (project-local).
-3. Otherwise, `~/.staff/` — the encouraged default, so data compounds across the
-   builder's work.
+1. `$STAFF_ROOT` if set (env override; `$STAFF_DATA_DIR` is the back-compat alias).
+2. Otherwise, the nearest `staff/`, `Staff/`, or `.staff/` walking up from cwd — a
+   directory qualifies if it contains `canon/`, `proposal/`, or `sessions/`.
+3. Otherwise, a registered choice in `~/.config/staff/config.json` (key = abs folder).
+4. Otherwise, `alwaysUserRoot: true` in config → `~/Staff` (or a custom `userRoot`).
+5. Otherwise, if the terminal is interactive, the program asks once and registers the
+   choice for this folder — prefer `~/Staff` (public, Finder-visible) by default.
+6. Otherwise, error with actionable guidance.
 
-Create the resolved root lazily on first write. Code that hard-codes a root is a
-bug.
+Code that hard-codes a root is a bug.
 
 ### The grammar
 
 ```
-{root}/traits/{name}/main.md
-{root}/roles/{name}/main.md
-{root}/plays/{name}/main.md
-{root}/teams/{name}/main.md
-{root}/staff/{name}/main.md
-{root}/sessions/{name}/{ts}-{main,update,delivery}.md
+{root}/canon/{kind}/{name}/           — a canonized primitive
+{root}/proposal/{kind}/{name}/        — the living proposal (one per name,
+                                        same subtree shape as canon)
+{root}/proposal/{kind}/{name}/updates/{ts}.md
+                                      — append-only change log (out of band)
+{root}/sessions/{name}/               — a session log
 ```
+
+A primitive directory holds a prose `main.md` **and/or** `gates/*.md`
+(executable checkpoints) **and/or** `players/{name}/` (a roster) — see *Gates and
+players* below; all three are optional and additive. A session holds
+`{ts}-{main,update,delivery}.md` leaves (optionally grouped under
+`players/{member}/`), plus `meta`, an `assets/` folder for side-effect files, and
+its own acceptance `gates/`. `{kind}` is one of
 
 where
 
@@ -196,7 +206,7 @@ where
 and
 
 - `{name}` — `[a-z0-9][a-z0-9-]{0,47}`.
-- `{ts}` — `YYYYMMDDhhmmss` UTC.
+- `{ts}` — `YYYYMMDDhhmmss` UTC (session leaves and proposal update log only).
 
 A malformed path is invisible — the convention silently ignores it.
 
@@ -207,7 +217,7 @@ listing. Nothing else:
 
 | Action | What you do |
 |--------|-------------|
-| capture trait/role/play/team/staff | write `{root}/{kind}/{name}/{ts}-proposal.md` (see *Proposals, not promotions*) |
+| capture trait/role/play/team/staff | write under `{root}/proposal/{kind}/{name}/` (see *Proposals, not promotions*) |
 | read one | read the file at its path |
 | list a kind | list the directories under `{root}/{kind}/` |
 | open a session | write `{root}/sessions/{name}/{ts}-main.md` |
@@ -231,17 +241,25 @@ and disambiguate with the user — typos silently fork the log.
 
 ### Proposals, not promotions
 
-Never write a proposed trait, role, play, team, or staff straight to `main.md`.
-Communicate the proposal to the builder; if it's worth persisting, capture it as a
-sibling note:
+Never write a proposed trait, role, play, team, or staff into `canon/`.
+Communicate the proposal to the builder; if it's worth persisting, capture it
+as the living proposal under `proposal/`:
 
 ```
-{root}/{kind}/{name}/{ts}-proposal.md
+{root}/proposal/{kind}/{name}/          (main.md and/or gates/, same as canon)
+{root}/proposal/{kind}/{name}/updates/{ts}.md   (change log, out of band)
 ```
 
-The `{name}` may not exist yet — the proposal can be the first thing under it.
-Promotion to `main.md` is the builder's call, not yours. Multiple chiefs may
-propose against the same `{name}` over time; each `{ts}-proposal.md` stands alone.
+The `{name}` may not exist under `canon/` yet — the proposal can be the first
+thing anywhere for that name. Each write to the proposal also appends one
+`updates/{ts}.md` leaf (body: one line saying what was written, e.g.
+`main.md updated` or `gates/no-empty-promises.md added`); this is the history
+log and is out of band — not copied on promotion. Multiple chiefs converge on
+the same living proposal; the last write wins. Promotion is the builder's call,
+not yours: it materializes `{root}/canon/{kind}/{name}/` from the living
+proposal (everything except `updates/`). This canon-vs-proposal split is the
+**one structural change** the layout requires (see *Gates and players → what
+actually has to change*).
 
 ### AVOID these errors when capturing traits, roles, plays, and teams
 
@@ -251,10 +269,15 @@ propose against the same `{name}` over time; each `{ts}-proposal.md` stands alon
 
 ### Body shapes and examples
 
+These are **prose bodies** — `main.md` under the primitive. Prose stays
+first-class: paths below elide the `canon/` bucket for brevity (a canonized
+primitive lives at `{root}/canon/{kind}/{name}/main.md`). Any of these bodies
+can also — or instead — be expressed as gates; see *Gates and players*.
+
 Traits
 
 ```
-{root}/traits/skeptical/main.md
+{root}/canon/traits/skeptical/main.md
 
 You don't trust work being presented to you, you don't take tech talk,
 you always look for gates that make sure you are not receiving empty
@@ -318,6 +341,52 @@ Then focus on delivery that tests the concept first and raise
 feasibility questions on production environment later.
 ```
 
+### Gates and players — the executable overlay (additive)
+
+The bodies above are prose, and prose stays first-class: **keep your text, keep
+writing text.** On top of it — incrementally, never all at once — a primitive's
+steering can be expressed as **gates**: checkpoints that state what must hold for
+work to move ahead. A gate is a markdown file under `gates/`, a small Gherkin
+scenario carrying its own state:
+
+```
+{root}/canon/traits/{name}/gates/{gate}.md
+
+# (MANDATORY GATE) <what it guards>
+Gate State is OPEN by default and CLOSED when the conditions below hold.
+You MUST NOT declare success while this gate is CLOSED.
+Scenario: <the check>
+  Given <context>
+  When  <trigger — also encodes sequence, e.g. "after the brief">
+  Then  the Gate is CLOSED unless <the requirement is met>.
+```
+
+A primitive is a **family of gates**: one broad `(MANDATORY GATE)` stating the
+outcome it requires, plus optional self-scoping `(MECHANISM GATE)`s (each scoped
+by its `Given` to a surface or context). Because a role is just its gates,
+referencing a role and writing a gate inline are the same thing by-reference
+vs by-value.
+
+**Players** are the only non-gate component — *who* is in the flow:
+`players/{name}/` on teams (a standing roster) and on sessions
+(participants). A player points at a role (`role.ref` — a one-line
+`file://…/canon/roles/{name}` locator) and/or carries its own inline
+`gates/`; a session participant may be just a name with its authored
+leaves (the chief is such a member). No `count` or `seniority` fields —
+a qualifier lives in the **name** and in **gates**, never in a dangling
+ref to something that doesn't exist.
+
+**What actually has to change — and what doesn't.** The *one* real migration
+from the old layout is the bucket split: canonized primitives move under
+`canon/`, proposals under `proposal/{…}/`. Everything else is **additive**.
+A `main.md` prose body remains valid — keep it, grow it, and add a `gates/` file
+beside it only when a checkpoint earns being executable; add a `players/` when a
+team or session wants an explicit roster. A reader handles both formats with no
+real branching: read `main.md` for the prose, `gates/` for the checkpoints,
+`players/` for the roster — any subset may be present, and a primitive with only
+prose is as legitimate as one that is all gates. Adopt gates where they buy you
+enforcement; leave prose where it reads better.
+
 ### Dispatching agents to work on the session
 
 When dispatching agents, prefer giving them *references* to the traits and roles
@@ -347,6 +416,41 @@ tools, or anything not STAFF-aware, the chief translates: reads the references
 itself, passes a task description without STAFF concepts, and writes the session
 updates on the subagent's behalf.
 
+## The Program — the staff CLI
+
+The convention needs no software — and when the builder has installed the
+program, use it. On activation, check once: `command -v staff`. If present,
+perform the verbs through the CLI instead of hand-rolling file operations;
+the writes land in the same root through the resolved rig, with the URI
+grammar enforced for you.
+
+| Action | CLI |
+|--------|-----|
+| capture (propose) a primitive | `staff add <kind> <name> [<prose>\|-]` |
+| propose a gate on one | `staff add gate <kind>/<name>/<gate> [<prose>\|-]` |
+| promote (builder's call only) | `staff promote <kind> <name>` |
+| list a kind | `staff list <kind>` |
+| read one path | `staff read <path>` |
+| dispatch a session | `staff cast play\|role\|trait\|team … [--room <room>] [--session <name>] [-- <claude args>]` |
+| preview a cast | `staff cast … --dry-run` |
+| health / rig binding | `staff rig` |
+
+Kinds are singular on the command line (`trait`), plural in the tree
+(`traits`). Prose comes from the trailing argument or stdin (`-`).
+`staff add` writes proposals only — promotion stays the builder's act.
+
+**cast** is the program's dispatch: one cast = one Claude Code session,
+briefed with *references* to the canon it is cast from. `--room <room>`
+writes a cc-chat room URI into the brief so the session joins, observes,
+and stays subscribed — durable agents that communicate, no redispatch.
+Everything after `--` passes to `claude` verbatim (`-- -p "…"` for
+headless).
+
+Install: `deno install --global -A -n staff jsr:@bandeira-tech/staff/cli`
+
+If `staff` is absent, everything below still works by hand — that is the
+point of the convention.
+
 ## Built on b3nd — remote sources, replication, and a shared surface
 
 Everything above works on a bare filesystem, with no dependency on b3nd. That is
@@ -375,8 +479,10 @@ on stdio. The builder needs `bnd` on PATH:
 deno install --global -A -n bnd jsr:@bandeira-tech/b3nd-cli@^0.5.0
 ```
 
-The rig's store resolves its data dir from `$STAFF_DATA_DIR`, defaulting to
-`~/.staff/fs`. If `b3nd_status` doesn't return, either `bnd` is missing or the rig
+The rig's store resolves its data dir in order: `$STAFF_ROOT` →
+`$STAFF_DATA_DIR` → `~/Staff`. The rig's tree is the same human-readable tree
+as the bare-fs convention — one root, one layout, by hand or through the
+program. If `b3nd_status` doesn't return, either `bnd` is missing or the rig
 file isn't where the launcher expects — surface that to the builder; don't fall
 back to direct HTTP or ad-hoc scripts.
 

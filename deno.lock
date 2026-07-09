@@ -3,6 +3,9 @@
   "specifiers": {
     "jsr:@bandeira-tech/b3nd-core@0.22": "0.22.0",
     "jsr:@bandeira-tech/b3nd-core@0.24": "0.24.0",
+    "jsr:@bandeira-tech/b3nd-move@0.19": "0.19.0",
+    "jsr:@bandeira-tech/b3nd-save@0.13": "0.13.0",
+    "jsr:@bandeira-tech/b3nd-save@0.13.0": "0.13.0",
     "jsr:@bandeira-tech/b3nd-save@~0.12.1": "0.12.1",
     "jsr:@std/assert@^1.0.15": "1.0.19",
     "jsr:@std/fs@1": "1.0.24",
@@ -22,8 +25,17 @@
     "@bandeira-tech/b3nd-core@0.24.0": {
       "integrity": "38926272f121f40d02daeb17ced0749c43f9d9261c0200f209366b1cb98a0691"
     },
+    "@bandeira-tech/b3nd-move@0.19.0": {
+      "integrity": "49b09d92ccbc40fba378278d30033afdea602f0c3a03f8a094b30bafc579004d"
+    },
     "@bandeira-tech/b3nd-save@0.12.1": {
       "integrity": "3772448097ede72c4f416606215e5b0d1f243cb85221ac093f5fba57389e74aa",
+      "dependencies": [
+        "jsr:@bandeira-tech/b3nd-core@0.22"
+      ]
+    },
+    "@bandeira-tech/b3nd-save@0.13.0": {
+      "integrity": "41c4349604049deffff00d4e3b9e4bfce9c5e462cdbb52b94ec4cf8af2db0325",
       "dependencies": [
         "jsr:@bandeira-tech/b3nd-core@0.22"
       ]

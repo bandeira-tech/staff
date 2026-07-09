@@ -22,28 +22,40 @@ You are listing entries in the STAFF convention.
      single entry.
 
 2. **List.**
-   Primary: `ls <root><resource>/` on disk.
-   - revisions under a card: `ls <root><card>/<name>/`.
-   - leaves of a session: `ls <root>sessions/<name>/`.
+   Primary: `ls <root>canon/<resource>/` on disk (the canonized
+   entries). Sessions sit outside canon: `ls <root>sessions/`.
+   - proposal for a card: `ls <root>proposal/<card>/<name>/` — one living
+     proposal per name (no `<ts>/` subtree; `updates/` is the log).
+   - leaves of a session: `ls <root>sessions/<name>/` (leaves may be
+     grouped under `players/<member>/`).
    If a b3nd rig is wired, the equivalent is
-   `b3nd_read([ "<root><resource>/?fn=ls" ])` (and the per-card or
-   per-session variants on the same shape).
+   `b3nd_read([ "<root>canon/<resource>/?fn=ls" ])` (and the proposal
+   or per-session variants on the same shape).
 
 3. **Render.**
    - For card resources (`traits`, `roles`, `plays`, `teams`, `staff`):
-     one line per entry, `<name>` + first line of `main.md`.
+     one line per entry under `<root>canon/<resource>/`, `<name>` +
+     first line of its `main.md` (or its first gate's title if it is
+     gates-only).
    - For `sessions`: group by recency, sorted by the most recent leaf
      timestamp in each session directory (newest first). Render in two
      distinct groups so the chief can orient:
-     - **Open** — sessions with no `<ts>-delivery.md` leaf yet.
+     - **Open** — sessions with no `<ts>-delivery.md` leaf anywhere
+       (session root or under any `players/<member>/`).
      - **Delivered** — sessions with at least one `<ts>-delivery.md`.
-     Show each as `<name>` + first line of the earliest
-     `<ts>-main.md`. Cap each group at the most recent ~20. The
+     Show each as `<name>` + its mandate (from `meta`, else the first
+     `<ts>-main.md`). Cap each group at the most recent ~20. The
      listing is the orientation surface — there is no registry, per
      the SKILL's "Sessions are logs, not state".
-   - For a specific card `<name>`: `main.md` first, then sibling
-     timestamped notes newest first.
-   - For a specific session `<name>`: enumerate `<ts>-main.md`,
-     `<ts>-update.md`, `<ts>-delivery.md` leaves in timestamp order.
+   - For a specific card `<name>`: the canonized entry at
+     `<root>canon/<card>/<name>/` first, then the living proposal at
+     `<root>proposal/<card>/<name>/` if one exists.
+   - For a specific session `<name>`: enumerate its `<ts>-main.md`,
+     `<ts>-update.md`, `<ts>-delivery.md` leaves (at the root or under
+     `players/<member>/`) in timestamp order.
 
 Disposition: terse. The list is for orientation, not for reading.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

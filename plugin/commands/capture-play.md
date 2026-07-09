@@ -43,11 +43,14 @@ Phases, gates between them, expected outputs at the end.
 
 3. **Communicate, then capture as proposal.**
    Surface what you'd capture and why before writing anything. Never
-   write `main.md` directly — promotion is the builder's call. If they
-   want it persisted, write a proposal at
-   `<root>plays/<name>/<ts>-proposal.md`. If a b3nd rig is wired, the
-   equivalent is
-   `b3nd_receive { messages: [[ "<root>plays/<name>/<ts>-proposal.md", "<body>" ]] }`.
+   write into `canon/` directly — promotion is the builder's call. If
+   they want it persisted, write (or update in place) the living proposal at
+   `<root>proposal/plays/<name>/main.md` (the prose body — and add `gates/`
+   beside it if a phase/gate earns being an executable checkpoint; see the
+   SKILL's "Gates and cast"). Also append one update-log leaf at
+   `<root>proposal/plays/<name>/updates/<ts>.md` (body: `main.md updated`).
+   If a b3nd rig is wired, the equivalent is
+   `b3nd_receive { messages: [[ "<root>proposal/plays/<name>/main.md", "<body>" ], [ "<root>proposal/plays/<name>/updates/<ts>.md", "main.md updated" ]] }`.
    See the SKILL's "Proposals, not promotions".
 
 4. **Optionally log inside a session.**
@@ -61,3 +64,7 @@ Phases, gates between them, expected outputs at the end.
 Disposition: a play earns its keep by running. If you cannot picture
 the next time it will run, push back on capturing it. Historical
 context belongs to session updates, not on `main.md`.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

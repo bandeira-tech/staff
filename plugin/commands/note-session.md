@@ -42,3 +42,7 @@ stands alone.
 
 Disposition: one update per state change. Terse. Updates are for
 audit, not for narration.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

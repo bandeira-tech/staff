@@ -1,7 +1,7 @@
 {
   "name": "staff",
-  "version": "0.1.0",
-  "description": "STAFF by BANDEIRA.TECH — Claude as Chief of Staff. Atomic primitives (Traits, Plays, Sessions) over a b3nd rig. Bundles a staff.rig.ts hosted via `bnd node --mcp` so the standard b3nd MCP verbs (b3nd_receive, b3nd_read, b3nd_status) just work. Requires `bnd` on PATH.",
+  "version": "0.2.0",
+  "description": "STAFF by BANDEIRA.TECH — Claude as Chief of Staff. Atomic primitives (Traits, Plays, Sessions) over a b3nd rig. Bundles a staff.rig.ts hosted via `bnd node --mcp` so the standard b3nd MCP verbs (b3nd_receive, b3nd_read, b3nd_status) just work. Requires `bnd` on PATH. Ships with the staff CLI (jsr:@bandeira-tech/staff/cli) — the chief uses the program when installed.",
   "author": { "name": "Bandeira Tech", "url": "https://github.com/bandeira-tech" },
   "license": "MIT",
   "keywords": ["b3nd", "agents", "claude-code", "staff", "traits", "plays", "sessions"],

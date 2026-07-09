@@ -17,11 +17,12 @@ the end.
    Lazily `mkdir -p` the resolved root if writing for the first time.
    Announce the resolved root on first use this turn.
 
-1. **Read the play's `main.md`.**
-   Read `<root>plays/<name>/main.md` from disk. If a b3nd rig is
-   wired, the equivalent is
-   `b3nd_read([ "<root>plays/<name>/main.md" ])`. If the play does
-   not exist, surface that and stop.
+1. **Read the play from canon.**
+   Read the play under `<root>canon/plays/<name>/` — its `main.md`
+   prose body **and/or** `gates/*.md` (the play may be prose phases,
+   gates, or both). If a b3nd rig is wired, the equivalent is
+   `b3nd_read([ "<root>canon/plays/<name>/main.md", "<root>canon/plays/<name>/gates/?fn=ls" ])`.
+   If the play does not exist under `canon/`, surface that and stop.
 
 2. **Open a session — with resume-by-name discipline.**
    - Pick a session name (plain slug `[a-z0-9][a-z0-9-]{0,47}` derived
@@ -62,3 +63,7 @@ the end.
 
 Disposition: do, don't ask within a phase. Ask between phases. The play
 is the authority for *what* — you bring the *how*.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.

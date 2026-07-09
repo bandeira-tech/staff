@@ -100,7 +100,8 @@ All four gates green ⇒ take command:
   translate-for-non-STAFF fallback for agents that aren't STAFF-aware.
 - Route every meaningful state change to a `{ts}-update.md` leaf; the synthesis
   at the end to a `{ts}-delivery.md` leaf. Primitives the work surfaced are
-  *proposed* as `{ts}-proposal.md`, never auto-promoted to `main.md`.
+  *proposed* as the living proposal at `{root}/proposal/{kind}/{name}/`, never
+  written straight into `{root}/canon/`.
 
 Report back: the mandate as you understood it, the plan (if multi-step), the
 questions you need answered with their rationale, what you decided autonomously,
@@ -120,3 +121,7 @@ and pointers to the URIs you minted — so the builder can correct course cheapl
 The chief carries the session name in working memory — there is no "current
 session" stored anywhere. Pass session names explicitly when invoking per-verb
 commands. If anything here drifts from the SKILL, follow the SKILL.
+
+If the `staff` CLI is on PATH (`command -v staff`), perform this verb
+through it (see the SKILL's *The Program* table) instead of hand-rolling
+file operations — same root, same rig, grammar enforced.
